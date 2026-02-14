@@ -1,17 +1,20 @@
 import { ScholarshipCard } from "@/components/ScholarshipCard";
-import { Button } from "@/components/ui/button";
+import connectDB from "@/lib/db";
+import Scholarship from "@/models/Scholarship";
 import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
+import { Button } from "@/components/ui/button";
 
-export default function Home() {
-  const scholarships = [
-    { id: "1", title: "HDFC Badhte Kadam", provider: "HDFC Bank", amount: 100000, location: "Pan-India", deadline: new Date("2026-03-31"), tags: ["Undergraduate", "Need-based"] },
-    { id: "2", title: "Tata Capital Pankh", provider: "Tata Capital", amount: 12000, location: "Maharashtra", deadline: new Date("2026-04-15"), tags: ["School", "Merit-based"] },
-    { id: "3", title: "Google Generation Scholarship", provider: "Google", amount: 250000, location: "Online", deadline: new Date("2026-05-10"), tags: ["Women in Tech", "Computer Science"] },
-  ];
+export default async function Home() {
+  // 1. Establish the connection
+  await connectDB();
+  
+  // 2. Fetch ALL scholarships from your real MongoDB
+  // We use .lean() to make it a plain JavaScript object for faster performance
+  const scholarships = await Scholarship.find({}).sort({ createdAt: -1 }).lean();
 
   return (
     <main className="flex min-h-screen flex-col items-center p-10 bg-slate-50 gap-8">
-      {/* --- NEW NAVBAR SECTION --- */}
+      {/* Navbar */}
       <nav className="w-full max-w-6xl flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">scholarLogic</h1>
         <div>
@@ -25,18 +28,34 @@ export default function Home() {
           </SignedIn>
         </div>
       </nav>
-      {/* -------------------------- */}
 
       <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Scholarship Portal</h1>
-        <p className="text-slate-500">Your centralized platform for financial aid.</p>
+        <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Real-Time Scholarships</h1>
+        <p className="text-slate-500">Currently showing {scholarships.length} active opportunities from our database.</p>
       </div>
 
+      {/* 3. Render the REAL cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
-        {scholarships.map((scholarship) => (
-          <ScholarshipCard key={scholarship.id} {...scholarship} />
+        {scholarships.map((s: any) => (
+          <ScholarshipCard 
+            key={s._id.toString()} 
+            id={s._id.toString()}
+            title={s.title}
+            provider={s.provider}
+            amount={s.amount}
+            location={s.location}
+            deadline={s.deadline}
+            tags={s.tags.length > 0 ? s.tags : ["New"]}
+          />
         ))}
       </div>
+      
+      {/* Admin Quick Link (Temp) */}
+      <footer className="mt-10">
+        <a href="/admin" className="text-xs text-slate-400 hover:text-blue-500 transition-colors">
+          Admin Portal (Database Access)
+        </a>
+      </footer>
     </main>
   );
 }
