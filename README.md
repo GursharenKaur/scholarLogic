@@ -1,3 +1,66 @@
+🎓 scholarLogic
+Next-Generation Scholarship Matching Platform
+
+ScholarLogic is a full-stack platform designed to bridge the gap between complex scholarship PDFs and students. Built with a focus on automation and user-centric design.
+
+🛠️ Project Stack
+Framework: Next.js 15+ (App Router)
+
+Authentication: Clerk
+
+Database: MongoDB Atlas via Mongoose
+
+UI Components: ShadCN + Tailwind CSS
+
+🏗️ Architecture & Folder Structure
+To ensure code quality and consistency, all contributors must follow this structure:
+
+/models: Mongoose schemas (The "Data Contract").
+
+/actions: Server Actions for database mutations (No manual API routes).
+
+/lib: Shared utility logic and DB connection.
+
+/components: Reusable UI elements.
+
+/app: Routing and page logic.
+
+📋 Teammate Instructions
+Member 2: Frontend & Student Features
+
+Focus: User profiles and the matching engine.
+
+Student Profile: Create a page where users can save their CGPA and Income.
+
+Matching Logic: Filter the scholarships on the homepage by comparing user data (from Clerk/DB) with scholarship requirements.
+
+UI/UX: Enhance the dashboard with loading skeletons and success notifications.
+
+Member 3: AI Bridge & Python Automation
+
+Focus: PDF data extraction and database injection.
+
+Extraction Script: Write a Python script to parse scholarship PDFs into JSON.
+
+Database Push: Use PyMongo to push data directly to the scholarships collection in the scholarLogic database.
+
+Schema Alignment: Ensure extracted data matches our schema: title, provider, amount, deadline, and applyLink.
+
+🔐 Environment Setup
+Create a .env.local file with the following keys. Never commit this file to GitHub.
+
+Plaintext
+MONGODB_URI=your_mongodb_connection_string
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_key
+CLERK_SECRET_KEY=your_key
+🚀 Getting Started
+npm install
+
+npm run dev
+
+Access the admin portal at /admin to test manual data entry.
+
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
