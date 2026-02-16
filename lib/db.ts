@@ -12,7 +12,8 @@ if (!cached) {
   cached = (global as any).mongoose = { conn: null, promise: null };
 }
 
-async function connectDB() {
+// NOTICE THE WORD "export" HERE - This fixes your error
+export async function connectToDatabase() {
   if (cached.conn) {
     return cached.conn;
   }
@@ -26,8 +27,13 @@ async function connectDB() {
       return mongoose;
     });
   }
-  cached.conn = await cached.promise;
+  
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
+
   return cached.conn;
 }
-
-export default connectDB;

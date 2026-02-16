@@ -1,32 +1,40 @@
 "use server";
 
-import connectDB from "@/lib/db";
+import { connectToDatabase } from "@/lib/db";
 import Scholarship from "@/models/Scholarship";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export async function createScholarship(formData: FormData) {
-  await connectDB();
+  await connectToDatabase();
 
-  // Extract values from the form
-  const rawData = {
-    title: formData.get("title") as string,
-    provider: formData.get("provider") as string,
-    amount: Number(formData.get("amount")),
-    location: formData.get("location") as string,
-    deadline: new Date(formData.get("deadline") as string),
-    applyLink: formData.get("applyLink") as string,
-    description: formData.get("description") as string,
-  };
+  const title = formData.get("title");
+  const amount = formData.get("amount");
+  const provider = formData.get("provider");
+  const deadline = formData.get("deadline");
+  const description = formData.get("description");
+  const location = formData.get("location");
+  const applyLink = formData.get("applyLink");
+  
+  // 👇 NEW: Extract Eligibility Data
+  // If the user leaves it empty, we save it as 0 (open to all)
+  const minCGPA = formData.get("minCGPA") ? parseFloat(formData.get("minCGPA") as string) : 0;
+  const minIncome = formData.get("minIncome") ? parseFloat(formData.get("minIncome") as string) : 0;
 
-  try {
-    const newScholarship = await Scholarship.create(rawData);
-    console.log("Success! Saved to DB:", newScholarship._id);
-    
-    // This tells Next.js to refresh the homepage to show the new card
-    revalidatePath("/"); 
-    return { success: true };
-  } catch (error) {
-    console.error("Database Error:", error);
-    return { success: false };
-  }
+  await Scholarship.create({
+    title,
+    provider,
+    amount: Number(amount),
+    deadline: new Date(deadline as string),
+    description,
+    location,
+    applyLink,
+    minCGPA,    // Save to DB
+    minIncome,  // Save to DB
+    type: "Merit", // Defaulting for now
+    educationLevel: "Undergraduate", // Defaulting for now
+  });
+
+  revalidatePath("/");
+  redirect("/");
 }

@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calendar, MapPin, IndianRupee, CheckCircle } from "lucide-react";
 import Link from "next/link";
-import connectDB from "@/lib/db";
+import {connectToDatabase} from "@/lib/db";
 import Scholarship from "@/models/Scholarship";
 
 export default async function ScholarshipDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -10,7 +10,7 @@ export default async function ScholarshipDetail({ params }: { params: Promise<{ 
   const { id } = await params;
   
   // 2. Connect to your real MongoDB Atlas
-  await connectDB();
+  await connectToDatabase();
 
   // 3. Fetch the scholarship by its real ID from the database
   // .lean() converts the Mongoose document into a plain JavaScript object
