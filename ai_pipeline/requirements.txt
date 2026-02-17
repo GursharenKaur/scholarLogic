@@ -1,0 +1,5 @@
+pymongo
+python-dotenv
+pdfplumber
+requests
+# google-genai
