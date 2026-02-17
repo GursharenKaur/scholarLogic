@@ -4,19 +4,24 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { auth } from "@clerk/nextjs/server";
 import User from "@/models/User";
 import Scholarship from "@/models/Scholarship";
-import dbConnect from "@/lib/db";
+import { connectToDatabase } from "@/lib/db";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 // 1️⃣ Eligibility Explanation
 export async function generateEligibilityExplanation(scholarshipId: string) {
-  await dbConnect();
+  await connectToDatabase();
 
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
+//   console.log("User ID", userId);
 
   const user = await User.findOne({ clerkId: userId });
+  if (!user) {
+    throw new Error("User profile not found. Please complete onboarding.");
+  }
+
   const scholarship = await Scholarship.findById(scholarshipId);
 
   const prompt = `
@@ -38,9 +43,9 @@ export async function generateEligibilityExplanation(scholarshipId: string) {
 
 // 2️⃣ SOP Generator
 export async function generateSOP(scholarshipId: string) {
-  await dbConnect();
+  await connectToDatabase();
 
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
   const user = await User.findOne({ clerkId: userId });
