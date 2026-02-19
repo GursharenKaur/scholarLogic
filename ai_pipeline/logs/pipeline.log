@@ -1,0 +1,139 @@
+ERROR:root:Error processing sample1.pdf: Invalid format specifier ' "",
+    "provider": "",
+    "amount": 0,
+    "deadline": "",
+    "minCGPA": 0,
+    "maxIncome": 0,
+    "description": "",
+    "applyLink": "",
+    "location": ""
+  ' for object of type 'str'
+ERROR:root:Error processing sample1.pdf: Invalid format specifier ' "",
+    "provider": "",
+    "amount": 0,
+    "deadline": "",
+    "minCGPA": 0,
+    "maxIncome": 0,
+    "description": "",
+    "applyLink": "",
+    "location": ""
+  ' for object of type 'str'
+ERROR:root:Error processing sample1.pdf: Invalid format specifier ' "",
+    "provider": "",
+    "amount": 0,
+    "deadline": "",
+    "minCGPA": 0,
+    "minIncome": 0,
+    "description": "",
+    "applyLink": "",
+    "location": ""
+  ' for object of type 'str'
+ERROR:root:Error processing sample1.pdf: Invalid format specifier ' "",
+    "provider": "",
+    "amount": 0,
+    "deadline": "",
+    "minCGPA": 0,
+    "minIncome": 0,
+    "description": "",
+    "applyLink": "",
+    "location": ""
+  ' for object of type 'str'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+INFO:root:Inserted scholarship: TIET Merit-cum-Means (Normal) Scholarship 2025-26
+INFO:root:Inserted scholarship: TIET Merit-cum-Means (Special) Scholarship 2025-26
+INFO:root:Inserted scholarship: TIET Merit-cum-Means (Lateral Entry) Scholarship 2025-26
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship (Normal)
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship _Special
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship _Lateral entry
+INFO:root:Inserted scholarship: Post Matric Scholarships Scheme for Minorities 2025-2026
+INFO:root:Inserted scholarship: Scholarship For Top Class Education For Students With Disabilities
+INFO:root:Inserted scholarship: Post Matric Scholarship For Students With Disabilities
+INFO:root:Inserted scholarship: Central Sector Scheme Of Scholarships For College And University Students
+INFO:root:Inserted scholarship: National Fellowship And Scholarship For Higher Education Of St Students - Scholarship (Formally Top Class Education For Schedule Tribe Students)
+INFO:root:Inserted scholarship: National Means Cum Merit Scholarship
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Central Armed Police Forces And Assam Rifles
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Wards Of States/Uts Police Personnel Martyred During Terror/Naxal Attacks
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Ministry Of Railways
+INFO:root:Inserted scholarship: National Scholarship For Post Graduate Studies
+INFO:root:Inserted scholarship: Ishan Uday Special Scholarship Scheme For Ner
+INFO:root:Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses (Nec Merit Scholarship)
+INFO:root:Inserted scholarship: Central Sector Scholarship Of Top Class Education For Sc Students
+INFO:root:Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/lome/Lsdm- Post Matric
+INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebe And Dnt Students
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme
+INFO:root:Inserted scholarship: Reliance Foundation Undergraduate Scholarships 2025-26
+INFO:root:Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Normal)
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Special)
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Lateral Entry)
+INFO:root:Inserted scholarship: Post Matric Scholarships Scheme for Minorities 2025-2026
+INFO:root:Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses(Nec Merit Scholarship)
+INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebe And Dnt Students
+INFO:root:Inserted scholarship: PRAGATI SCHOLARSHIP SCHEME
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship_Normal
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship_Special
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship_Lateral entry
+INFO:root:Inserted scholarship: Scholarship For Top Class Education For Students With Disabilities
+INFO:root:Inserted scholarship: Post Matric Scholarship For Students With Disabilities
+INFO:root:Inserted scholarship: Central Sector Scheme Of Scholarships For College And University Students
+INFO:root:Inserted scholarship: National Fellowship And Scholarship For Higher Education Of St Students - Scholarship (Formally Top Class Education For Schedule Tribe Students)
+INFO:root:Inserted scholarship: National Means Cum Merit Scholarship
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Central Armed Police Forces And Assam Rifles
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Wards Of States/Uts Police Personnel Martyred During Terror/Naxal Attacks
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Ministry Of Railways
+INFO:root:Inserted scholarship: National Scholarship For Post Graduate Studies
+INFO:root:Inserted scholarship: Ishan Uday Special Scholarship Scheme For Ner
+INFO:root:Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses(Nec Merit Scholarship)
+INFO:root:Inserted scholarship: Central Sector Scholarship Of Top Class Education For Sc Students
+INFO:root:Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/lome/Lsdm- Post Matric
+INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebe And Dnt Students
+INFO:root:Inserted scholarship: PRAGATI SCHOLARSHIP SCHEME
+INFO:root:Inserted scholarship: Reliance Foundation Undergraduate Scholarships 2025-26
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_Normal
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_Special
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_Lateral entry
+INFO:root:Inserted scholarship: Scholarship For Top Class Education For Students With Disabilities
+INFO:root:Inserted scholarship: Post Matric Scholarship For Students With Disabilities
+INFO:root:Inserted scholarship: Central Sector Scheme Of Scholarships For College And University Students
+INFO:root:Inserted scholarship: National Fellowship And Scholarship For Higher Education Of St Students - Scholarship (Formally Top Class Education For Schedule Tribe Students)
+INFO:root:Inserted scholarship: National Means Cum Merit Scholarship
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Central Armed Police Forces And Assam Rifles
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Wards Of States/Uts Police Personnel Martyred During Terror/Naxal Attacks
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Ministry Of Railways
+INFO:root:Inserted scholarship: National Scholarship For Post Graduate Studies
+INFO:root:Inserted scholarship: Ishan Uday Special Scholarship Scheme For Ner
+INFO:root:Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses(Nec Merit Scholarship)
+INFO:root:Inserted scholarship: Central Sector Scholarship Of Top Class Education For Sc Students
+INFO:root:Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/lome/Lsdm- Post Matric
+INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebe And Dnt Students
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme
+INFO:root:Inserted scholarship: Reliance Foundation Undergraduate Scholarships 2025-26
+INFO:root:Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Normal)
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Special)
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Lateral entry)
+INFO:root:Inserted scholarship: Scholarship For Top Class Education For Students With Disabilities
+INFO:root:Inserted scholarship: Post Matric Scholarship For Students With Disabilities
+INFO:root:Inserted scholarship: Central Sector Scheme Of Scholarships For College And University Students
+INFO:root:Inserted scholarship: National Fellowship And Scholarship For Higher Education Of St Students - Scholarship (Formally Top Class Education For Schedule Tribe Students)
+INFO:root:Inserted scholarship: National Means Cum Merit Scholarship
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Central Armed Police Forces And Assam Rifles
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Wards Of States/Uts Police Personnel Martyred During Terror/Naxal Attacks
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Ministry Of Railways
+INFO:root:Inserted scholarship: National Scholarship For Post Graduate Studies
+INFO:root:Inserted scholarship: Ishan Uday Special Scholarship Scheme For Ner
+INFO:root:Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses(Nec Merit Scholarship)
+INFO:root:Inserted scholarship: Central Sector Scholarship Of Top Class Education For Sc Students
+INFO:root:Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/lome/Lsdm- Post Matric
+INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebe And Dnt Students
+INFO:root:Inserted scholarship: PRAGATI SCHOLARSHIP SCHEME
+INFO:root:Inserted scholarship: Reliance Foundation Undergraduate Scholarships 2025-26
+INFO:root:Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23

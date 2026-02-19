@@ -8,27 +8,50 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, IndianRupee } from "lucide-react";
-import Link from "next/link"; // <--- New Import
+import Link from "next/link";
 
 interface ScholarshipCardProps {
-  id: string;       // <--- New Prop
+  id: string;
   title: string;
   provider: string;
-  amount: number;
-  location: string;
-  deadline: Date;
+  amount?: number;
+  amountType?: "CASH" | "WAIVER";
+  location?: string;
+  deadline?: Date;
   tags?: string[];
+  courseRestriction?: string;
+  categoryRestriction?: string;
+  yearRestriction?: string;
+  minCGPA?: number;
+  maxIncome?: number;
 }
 
 export function ScholarshipCard({
-  id,               // <--- Receive it here
+  id,
   title,
   provider,
   amount,
-  location,
+  amountType,
+  location = "Pan-India",
   deadline,
   tags = [],
+  courseRestriction,
+  categoryRestriction,
+  yearRestriction,
+  minCGPA,
+  maxIncome,
 }: ScholarshipCardProps) {
+  const formatAmount = () => {
+    if (amountType === "WAIVER") return "Tuition Waiver";
+    if (amount && amount > 0) return `₹${amount.toLocaleString("en-IN")}`;
+    return "Not specified";
+  };
+
+  const getDeadlineText = () => {
+    if (!deadline) return "No deadline";
+    return new Date(deadline).toLocaleDateString();
+  };
+
   return (
     <Card className="w-full max-w-md hover:shadow-lg transition-all border-l-4 border-l-blue-600 flex flex-col justify-between">
       <div>
@@ -40,8 +63,8 @@ export function ScholarshipCard({
               </p>
               <CardTitle className="text-xl font-bold">{title}</CardTitle>
             </div>
-            <Badge variant={amount > 50000 ? "default" : "secondary"}>
-              {amount > 50000 ? "High Value" : "Standard"}
+            <Badge variant={amountType === "WAIVER" ? "secondary" : amount && amount > 50000 ? "default" : "outline"}>
+              {amountType === "WAIVER" ? "Waiver" : amount && amount > 50000 ? "High Value" : "Standard"}
             </Badge>
           </div>
         </CardHeader>
@@ -49,10 +72,9 @@ export function ScholarshipCard({
         <CardContent className="space-y-4">
           <div className="flex items-center text-slate-700">
             <IndianRupee className="w-5 h-5 mr-2 text-green-600" />
-            <span className="text-2xl font-bold">
-              {amount.toLocaleString("en-IN")}
+            <span className="text-lg font-bold">
+              {formatAmount()}
             </span>
-            <span className="text-sm text-muted-foreground ml-1">/ year</span>
           </div>
 
           <div className="flex gap-4 text-sm text-slate-500">
@@ -62,9 +84,19 @@ export function ScholarshipCard({
             </div>
             <div className="flex items-center">
               <Calendar className="w-4 h-4 mr-1" />
-              {new Date(deadline).toLocaleDateString()}
+              {getDeadlineText()}
             </div>
           </div>
+
+          {(courseRestriction || categoryRestriction || yearRestriction || minCGPA || maxIncome) && (
+            <div className="space-y-1 text-xs text-slate-600">
+              {courseRestriction && <div>• Course: {courseRestriction}</div>}
+              {categoryRestriction && <div>• Category: {categoryRestriction}</div>}
+              {yearRestriction && <div>• Year: {yearRestriction}</div>}
+              {minCGPA && <div>• Min CGPA: {minCGPA}</div>}
+              {maxIncome && <div>• Max Income: ₹{maxIncome.toLocaleString("en-IN")}</div>}
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2 pt-2">
             {tags.map((tag, i) => (
@@ -80,7 +112,6 @@ export function ScholarshipCard({
       </div>
 
       <CardFooter>
-        {/* The Link Wrapper */}
         <Link href={`/scholarship/${id}`} className="w-full">
           <Button className="w-full bg-blue-600 hover:bg-blue-700">
             View Details
