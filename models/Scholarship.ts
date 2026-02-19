@@ -32,11 +32,9 @@ const ScholarshipSchema = new Schema<IScholarship>(
     amount: { type: Number, required: true },
     deadline: { type: Date, required: true },
     location: { type: String, default: "Pan-India" },
-    
     educationLevel: { type: String, default: "Any" },
     minIncome: { type: Number }, // optional thats why we used question mark in interface
     minCGPA: { type: Number },   // Optional
-    
     applyLink: { type: String, required: true },
     description: { type: String },
     tags: { type: [String], default: [] },

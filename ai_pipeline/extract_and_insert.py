@@ -42,51 +42,68 @@ def extract_text_from_pdf(path):
 
 
 def process_text(text):
-    prompt = f"""
-You are an information extraction engine.
+    print("Starting process_text function...")
+    try:
+        prompt = """You are an information extraction engine.
 
-Return ONLY valid JSON.
 Do NOT include explanations.
 Do NOT include markdown.
 Do NOT wrap in backticks.
 
-Strict format:
+Return ONLY valid JSON array.
 
-{{
-  "title": "",
-  "provider": "",
-  "amount": 0,
-  "deadline": "",
-  "minCGPA": 0,
-  "maxIncome": 0,
-  "courseRestriction": "",
-  "categoryRestriction": "",
-  "yearRestriction": ""
-}}
+Strict Format:
 
+[
+  {
+    "title": "",
+    "provider": "",
+    "amount": 0,
+    "deadline": "",
+    "minCGPA": 0,
+    "minIncome": 0,
+    "description": "",
+    "applyLink": "",
+    "location": ""
+  }
+]
+
+If multiple scholarships are present, return all of them in separate objects inside the array.
 If a field is not found, use null.
+If official website or application link is found, extract it into applyLink.
+If description exists, summarize it in 4-5 lines.
 
 Text:
-{text}
-"""
+""" + text
+        
+        print("Prompt created successfully, calling Gemini API...")
+    except Exception as e:
+        print(f"Error creating prompt: {e}")
+        return
 
     try:
+        print("Calling Gemini API...")
         response = call_gemini(prompt)
-        # print("RAW GEMINI RESPONSE:\n", response)
+        print("RAW GEMINI RESPONSE:")
+        print(response)
+        print("--- END RESPONSE ---")
     except Exception as e:
         print("Gemini error:", e)
         return
 
     try:
-        data = safe_json_parse(response)
+        data_list = safe_json_parse(response)
+        for data in data_list:
+            validated = validate_data(data)
+            success = insert_if_not_exists(validated)
+            if success:
+                logging.info(f"Inserted scholarship: {validated['title']}")
+            time.sleep(5)
+
     except Exception as e:
-        logging.error(f"JSON parse error: {str(e)}")
+        logging.error(f"Processing error: {str(e)}")
+        print(f"Processing error: {str(e)}")
         return
-
-    data = validate_data(data)
-
-    insert_if_not_exists(data)
-    time.sleep(5)
 
 def main():
     folder = "pdfs"
@@ -98,13 +115,18 @@ def main():
             text = extract_text_from_pdf(file_path)
 
             try:
-                # print("EXTRACTED TEXT PREVIEW:\n")
-                # print(text[:1000])
-                # print("\n--- END PREVIEW ---\n")
+                print("EXTRACTED TEXT PREVIEW:")
+                print(text[:500])
+                print("\n--- END PREVIEW ---\n")
+                print("Calling process_text...")
                 process_text(text)
+                print(f"✅ Successfully processed: {file}")
+            except ValueError as ve:
+                logging.error(f"Value error processing {file}: {str(ve)}")
+                print(f"❌ Failed: {file} - {str(ve)}")
             except Exception as e:
                 logging.error(f"Error processing {file}: {str(e)}")
-                print(f"❌ Failed: {file}")
+                print(f"❌ Failed: {file} - {str(e)}")
 
 
 if __name__ == "__main__":

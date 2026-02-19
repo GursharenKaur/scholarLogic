@@ -2,4 +2,7 @@ pymongo
 python-dotenv
 pdfplumber
 requests
+pdf2image
+pytesseract
+pillow
 # google-genai

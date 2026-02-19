@@ -1,12 +1,52 @@
-ERROR:root:Error processing sample.pdf: Missing title
-ERROR:root:Error processing sample.pdf: Missing title
-ERROR:root:Error processing sample.pdf: Missing title
-ERROR:root:Error processing sample.pdf: Missing title
-ERROR:root:Error processing sample.pdf: Missing title
-ERROR:root:Error processing sample.pdf: Missing title
-ERROR:root:Error processing sample.pdf: db already exists with different case already have: [Scholarlogic] trying to create [scholarLogic], full error: {'index': 0, 'code': 13297, 'errmsg': 'db already exists with different case already have: [Scholarlogic] trying to create [scholarLogic]'}
-ERROR:root:Error processing sample1.pdf: Missing title
-ERROR:root:Error processing sample1.pdf: Missing title
-ERROR:root:Error processing sample1.pdf: Missing title
-ERROR:root:Error processing sample3.pdf: Missing title
-ERROR:root:Error processing sample4.pdf: Missing title
+ERROR:root:Error processing sample1.pdf: Invalid format specifier ' "",
+    "provider": "",
+    "amount": 0,
+    "deadline": "",
+    "minCGPA": 0,
+    "maxIncome": 0,
+    "description": "",
+    "applyLink": "",
+    "location": ""
+  ' for object of type 'str'
+ERROR:root:Error processing sample1.pdf: Invalid format specifier ' "",
+    "provider": "",
+    "amount": 0,
+    "deadline": "",
+    "minCGPA": 0,
+    "maxIncome": 0,
+    "description": "",
+    "applyLink": "",
+    "location": ""
+  ' for object of type 'str'
+ERROR:root:Error processing sample1.pdf: Invalid format specifier ' "",
+    "provider": "",
+    "amount": 0,
+    "deadline": "",
+    "minCGPA": 0,
+    "minIncome": 0,
+    "description": "",
+    "applyLink": "",
+    "location": ""
+  ' for object of type 'str'
+ERROR:root:Error processing sample1.pdf: Invalid format specifier ' "",
+    "provider": "",
+    "amount": 0,
+    "deadline": "",
+    "minCGPA": 0,
+    "minIncome": 0,
+    "description": "",
+    "applyLink": "",
+    "location": ""
+  ' for object of type 'str'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+ERROR:root:Error processing sample1.pdf: '\n    "title"'
+INFO:root:Inserted scholarship: TIET Merit-cum-Means (Normal) Scholarship 2025-26
+INFO:root:Inserted scholarship: TIET Merit-cum-Means (Special) Scholarship 2025-26
+INFO:root:Inserted scholarship: TIET Merit-cum-Means (Lateral Entry) Scholarship 2025-26
