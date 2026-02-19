@@ -42,51 +42,55 @@ def extract_text_from_pdf(path):
 
 
 def process_text(text):
-    print("Starting process_text function...")
-    try:
-        prompt = """You are an information extraction engine.
+    prompt = """You are a precise scholarship information extraction engine.
 
-Do NOT include explanations.
-Do NOT include markdown.
-Do NOT wrap in backticks.
+STRICT RULES:
+1. Return ONLY a JSON array of scholarships
+2. NEVER guess values - if not clearly found, use null
+3. Split multiple scholarships into separate objects
+4. Convert percentages to CGPA out of 10 (75% → 7.5)
+5. Extract numeric values only (remove currency symbols, commas)
+6. Dates must be in YYYY-MM-DD format
+7. URLs must start with http
+8. Keep descriptions to 2-3 sentences
 
-Return ONLY valid JSON array.
+FIELD SPECIFICATIONS:
+- title: Exact scholarship name
+- provider: Institution/organization name
+- amount: Numeric value only, null if not specified
+- amountType: "CASH" for monetary awards, "WAIVER" for tuition waivers
+- deadline: YYYY-MM-DD format, null if not found
+- minCGPA: 0-10 scale, convert from percentage if needed
+- maxIncome: Numeric family income limit, null if not specified
+- courseRestriction: e.g., "BE/BTech", "MBA", etc.
+- categoryRestriction: e.g., "SC/ST", "General", etc.
+- yearRestriction: e.g., "1st year", "2nd-4th year", etc.
+- applyLink: Full URL starting with http, null if not found
+- description: Clean 2-3 sentence summary
 
-Strict Format:
-
+RETURN FORMAT:
 [
   {
     "title": "",
     "provider": "",
-    "amount": 0,
-    "deadline": "",
-    "minCGPA": 0,
-    "minIncome": 0,
-    "description": "",
-    "applyLink": "",
-    "location": ""
+    "amount": null,
+    "amountType": null,
+    "deadline": null,
+    "minCGPA": null,
+    "maxIncome": null,
+    "courseRestriction": null,
+    "categoryRestriction": null,
+    "yearRestriction": null,
+    "applyLink": null,
+    "description": null
   }
 ]
 
-If multiple scholarships are present, return all of them in separate objects inside the array.
-If a field is not found, use null.
-If official website or application link is found, extract it into applyLink.
-If description exists, summarize it in 4-5 lines.
-
-Text:
+TEXT TO ANALYZE:
 """ + text
-        
-        print("Prompt created successfully, calling Gemini API...")
-    except Exception as e:
-        print(f"Error creating prompt: {e}")
-        return
 
     try:
-        print("Calling Gemini API...")
         response = call_gemini(prompt)
-        print("RAW GEMINI RESPONSE:")
-        print(response)
-        print("--- END RESPONSE ---")
     except Exception as e:
         print("Gemini error:", e)
         return
@@ -115,10 +119,6 @@ def main():
             text = extract_text_from_pdf(file_path)
 
             try:
-                print("EXTRACTED TEXT PREVIEW:")
-                print(text[:500])
-                print("\n--- END PREVIEW ---\n")
-                print("Calling process_text...")
                 process_text(text)
                 print(f"✅ Successfully processed: {file}")
             except ValueError as ve:
