@@ -15,13 +15,19 @@ interface UserProfile {
 interface ScholarshipData {
   _id: string; // MongoDB always returns _id
   title: string;
-  amount: number;
-  type: "Merit" | "Need" | "Tech";
-  educationLevel: "Undergraduate" | "Postgraduate";
-  deadline: Date;
-  description: string;
+  provider: string;
+  amount?: number;
+  amountType?: "CASH" | "WAIVER";
+  deadline?: Date;
+  description?: string;
   minCGPA?: number;
-  minIncome?: number;
+  maxIncome?: number;
+  courseRestriction?: string;
+  categoryRestriction?: string;
+  yearRestriction?: string;
+  applyLink?: string;
+  location?: string;
+  educationLevel?: string;
 }
 
 export default async function Home() {
