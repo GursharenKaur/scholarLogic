@@ -1,0 +1,12 @@
+ERROR:root:Error processing sample.pdf: Missing title
+ERROR:root:Error processing sample.pdf: Missing title
+ERROR:root:Error processing sample.pdf: Missing title
+ERROR:root:Error processing sample.pdf: Missing title
+ERROR:root:Error processing sample.pdf: Missing title
+ERROR:root:Error processing sample.pdf: Missing title
+ERROR:root:Error processing sample.pdf: db already exists with different case already have: [Scholarlogic] trying to create [scholarLogic], full error: {'index': 0, 'code': 13297, 'errmsg': 'db already exists with different case already have: [Scholarlogic] trying to create [scholarLogic]'}
+ERROR:root:Error processing sample1.pdf: Missing title
+ERROR:root:Error processing sample1.pdf: Missing title
+ERROR:root:Error processing sample1.pdf: Missing title
+ERROR:root:Error processing sample3.pdf: Missing title
+ERROR:root:Error processing sample4.pdf: Missing title
