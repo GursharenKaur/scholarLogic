@@ -113,12 +113,13 @@ export default async function Home() {
           {validScholarships.map((scholarship) => (
             <ScholarshipCard 
               key={scholarship._id.toString()} 
-              // 👇 CHANGE THIS LINE
-              // Instead of passing the whole object, we "spread" it (...)
-              {...scholarship} 
-              
-              // We keep this just in case your card expects 'id' specifically
-              id={scholarship._id.toString()} 
+              id={scholarship._id.toString()}
+              title={scholarship.title}
+              provider={scholarship.provider}
+              amount={scholarship.amount}
+              location={scholarship.location}
+              deadline={scholarship.deadline}
+              tags={scholarship.tags}
             />
           ))}
         </div>
