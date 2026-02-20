@@ -137,16 +137,252 @@ INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Ed
 INFO:root:Inserted scholarship: PRAGATI SCHOLARSHIP SCHEME
 INFO:root:Inserted scholarship: Reliance Foundation Undergraduate Scholarships 2025-26
 INFO:root:Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23
-INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_Normal
-INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_Special
-INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_Lateral entry
+INFO:root:Inserted scholarship: TIET Merit-cum-Means (Normal) Scholarship
+INFO:root:Inserted scholarship: TIET Merit-cum-Means (Special) Scholarship
+INFO:root:Inserted scholarship: TIET Merit-cum-Means (Lateral entry) Scholarship
+INFO:root:Inserted scholarship: Scholarship For Top Class Education For Students With Disabilities
+INFO:root:Inserted scholarship: Post Matric Scholarship For Students With Disabilities
+INFO:root:Inserted scholarship: Central Sector Scheme Of Scholarships For College And University Students
+INFO:root:Inserted scholarship: National Fellowship And Scholarship For Higher Education Of St Students - Scholarship (Formally Top Class Education For Schedule Tribe Students)
+INFO:root:Inserted scholarship: National Means Cum Merit Scholarship
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Central Armed Police Forces And Assam Rifles
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Wards Of States/Uts Police Personnel Martyred During Terror/Naxal Attacks
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Ministry Of Railways
+INFO:root:Inserted scholarship: National Scholarship For Post Graduate Studies
+INFO:root:Inserted scholarship: Ishan Uday Special Scholarship Scheme For Ner
+INFO:root:Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses(Nec Merit Scholarship)
+INFO:root:Inserted scholarship: Central Sector Scholarship Of Top Class Education For Sc Students
+INFO:root:Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/lome/Lsdm- Post Matric
+INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebe And Dnt Students
+INFO:root:Inserted scholarship: PRAGATI SCHOLARSHIP SCHEME
+INFO:root:Inserted scholarship: Reliance Foundation Undergraduate Scholarships 2025-26
+INFO:root:Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+ERROR:root:JSON parsing error: Expecting value: line 1 column 1 (char 0)
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+ERROR:root:JSON parsing error: Expecting value: line 1 column 1 (char 0)
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+ERROR:root:JSON parsing error: Expecting value: line 1 column 1 (char 0)
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+ERROR:root:JSON parsing error: Expecting value: line 1 column 1 (char 0)
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+ERROR:root:JSON parsing error: Expecting value: line 1 column 1 (char 0)
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+ERROR:root:JSON parsing error: Expecting value: line 1 column 1 (char 0)
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 429 Too Many Requests"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 429 Too Many Requests"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 429 Too Many Requests"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 429 Too Many Requests"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 429 Too Many Requests"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 429 Too Many Requests"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 429 Too Many Requests"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 429 Too Many Requests"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 429 Too Many Requests"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
 INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship_Normal
 INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship_Special
 INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship_Lateral entry
-INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Normal)
-INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Special)
-INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Lateral Entry)
-ERROR:root:Value error processing sample2.pdf: PDF contains no readable text
-INFO:root:Inserted scholarship: PRAGATI SCHOLARSHIP SCHEME
-ERROR:root:Value error processing sample4.pdf: PDF contains no readable text
-ERROR:root:Value error processing sample5.pdf: PDF contains no readable text
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Post Matric Scholarships Scheme for Minorities 2025-2026
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Degree Level)
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Diploma Level)
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:docling.datamodel.document:detected formats: [<InputFormat.PDF: 'pdf'>]
+ERROR:root:Docling extraction error for pdfs\sample1.pdf: 'PdfPipelineOptions' object has no attribute 'backend'
+INFO:docling.datamodel.document:detected formats: [<InputFormat.PDF: 'pdf'>]
+INFO:docling.document_converter:Going to convert document batch...
+INFO:docling.document_converter:Initializing pipeline for StandardPdfPipeline with options hash 11ea31be9abc472bf019f6c97f75fd12
+INFO:docling.models.factories.base_factory:Loading plugin 'docling_defaults'
+INFO:docling.models.factories:Registered picture descriptions: ['picture_description_vlm_engine', 'vlm', 'api']
+INFO:docling.models.factories.base_factory:Loading plugin 'docling_defaults'
+INFO:docling.models.factories:Registered ocr engines: ['auto', 'easyocr', 'ocrmac', 'rapidocr', 'tesserocr', 'tesseract']
+INFO:docling.models.stages.ocr.auto_ocr_model:rapidocr cannot be used because onnxruntime is not installed.
+INFO:docling.models.stages.ocr.auto_ocr_model:easyocr cannot be used because it is not installed.
+INFO:docling.utils.accelerator_utils:Accelerator device: 'cpu'
+INFO:docling.models.stages.ocr.auto_ocr_model:Auto OCR model selected rapidocr with torch.
+INFO:docling.models.factories.base_factory:Loading plugin 'docling_defaults'
+INFO:docling.models.factories:Registered layout engines: ['layout_object_detection', 'docling_layout_default', 'docling_experimental_table_crops_layout']
+INFO:docling.utils.accelerator_utils:Accelerator device: 'cpu'
+WARNING:huggingface_hub.file_download:Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+ERROR:root:Docling extraction error for pdfs\sample1.pdf: [WinError 1314] A required privilege is not held by the client: '..\\..\\blobs\\2c5b32c47fb9789ed49606988f58bc4741a731ab' -> 'C:\\Users\\Jashanpreet Singh\\.cache\\huggingface\\hub\\models--docling-project--docling-layout-heron\\snapshots\\8f39ad3c0b4c58e9c2d2c84a38465abf757272d8\\README.md'
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_ Normal
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship _ Special
+INFO:root:Inserted scholarship: Merit-cum-means Scholarship_ Lateral entry
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Degree Level)
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Diploma Level)
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+ERROR:root:PDF extraction error for pdfs\sample5.pdf: PDF contains insufficient readable content
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_ Normal
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship _ Special
+INFO:root:Inserted scholarship: Merit-cum-means Scholarship_ Lateral entry
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Degree Level)
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Diploma Level)
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Scholarship For Top Class Education For Students With Disabilities
+INFO:root:Inserted scholarship: Post Matric Scholarship For Students With Disabilities
+INFO:root:Inserted scholarship: Central Sector Scheme Of Scholarships For College And University Students
+INFO:root:Inserted scholarship: National Fellowship And Scholarship For Higher Education Of St Students - Scholarship (Formally Top Class Education For Schedule Tribe Students)
+INFO:root:Inserted scholarship: National Means Cum Merit Scholarship
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Central Armed Police Forces And Assam Rifles
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Wards Of States/Uts Police Personnel Martyred During Terror/Naxal Attacks
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Ministry Of Railways
+INFO:root:Inserted scholarship: National Scholarship For Post Graduate Studies
+INFO:root:Inserted scholarship: Ishan Uday Special Scholarship Scheme For Ner
+INFO:root:Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses(Nec Merit Scholarship)
+INFO:root:Inserted scholarship: Central Sector Scholarship Of Top Class Education For Se Students
+INFO:root:Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/lome/Lsdm- Post Matric
+INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebce And Dnt Students
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Scholarship For Top Class Education For Students With Disabilities
+INFO:root:Inserted scholarship: Post Matric Scholarship For Students With Disabilities
+INFO:root:Inserted scholarship: Central Sector Scheme Of Scholarships For College And University Students
+INFO:root:Inserted scholarship: National Fellowship And Scholarship For Higher Education Of St Students - Scholarship (Formally Top Class Education For Schedule Tribe Students)
+INFO:root:Inserted scholarship: National Means Cum Merit Scholarship
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Central Armed Police Forces And Assam Rifles
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Wards Of States/Uts Police Personnel Martyred During Terror/Naxal Attacks
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Ministry Of Railways
+INFO:root:Inserted scholarship: National Scholarship For Post Graduate Studies
+INFO:root:Inserted scholarship: Ishan Uday Special Scholarship Scheme For Ner
+INFO:root:Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses(Nec Merit Scholarship)
+INFO:root:Inserted scholarship: Central Sector Scholarship Of Top Class Education For Se Students
+INFO:root:Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/lome/Lsdm- Post Matric
+INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebce And Dnt Students
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_ Normal
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship _ Special
+INFO:root:Inserted scholarship: Merit-cum-means Scholarship_ Lateral entry
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Scholarship For Top Class Education For Students With Disabilities
+INFO:root:Inserted scholarship: Post Matric Scholarship For Students With Disabilities
+INFO:root:Inserted scholarship: Central Sector Scheme Of Scholarships For College And University Students
+INFO:root:Inserted scholarship: National Fellowship And Scholarship For Higher Education Of St Students - Scholarship (Formally Top Class Education For Schedule Tribe Students)
+INFO:root:Inserted scholarship: National Means Cum Merit Scholarship
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Central Armed Police Forces And Assam Rifles
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Wards Of States/Uts Police Personnel Martyred During Terror/Naxal Attacks
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Ministry Of Railways
+INFO:root:Inserted scholarship: National Scholarship For Post Graduate Studies
+INFO:root:Inserted scholarship: Ishan Uday Special Scholarship Scheme For Ner
+INFO:root:Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses(Nec Merit Scholarship)
+INFO:root:Inserted scholarship: Central Sector Scholarship Of Top Class Education For Se Students
+INFO:root:Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/lome/Lsdm- Post Matric
+INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebce And Dnt Students
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Degree Level)
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Diploma Level)
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 429 Too Many Requests"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 429 Too Many Requests"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Reliance Foundation Undergraduate Scholarships 2025-26
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_ Normal
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship _ Special
+INFO:root:Inserted scholarship: Merit-cum-means Scholarship_ Lateral entry
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Post Matric Scholarships Scheme for Minorities 2025-2026
+INFO:root:Inserted scholarship: Scholarship For Top Class Education For Students With Disabilities
+INFO:root:Inserted scholarship: Post Matric Scholarship For Students With Disabilities
+INFO:root:Inserted scholarship: Central Sector Scheme Of Scholarships For College And University Students
+INFO:root:Inserted scholarship: National Fellowship And Scholarship For Higher Education Of St Students - Scholarship (Formally Top Class Education For Schedule Tribe Students)
+INFO:root:Inserted scholarship: National Means Cum Merit Scholarship
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Central Armed Police Forces And Assam Rifles
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Wards Of States/Uts Police Personnel Martyred During Terror/Naxal Attacks
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Ministry Of Railways
+INFO:root:Inserted scholarship: National Scholarship For Post Graduate Studies
+INFO:root:Inserted scholarship: Ishan Uday Special Scholarship Scheme For Ner
+INFO:root:Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses(Nec Merit Scholarship)
+INFO:root:Inserted scholarship: Central Sector Scholarship Of Top Class Education For Se Students
+INFO:root:Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/Iome/Lsdm- Post Matric
+INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebce And Dnt Students
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Degree Level - First Year Admitted)
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Degree Level - Lateral Entry)
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Diploma Level - First Year Admitted)
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme (Diploma Level - Lateral Entry)
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Reliance Foundation Undergraduate Scholarships 2025-26
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23

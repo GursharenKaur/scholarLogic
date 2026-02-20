@@ -61,3 +61,21 @@ def is_valid_date_format(date_str):
     # Basic YYYY-MM-DD format check
     import re
     return bool(re.match(r'^\d{4}-\d{2}-\d{2}$', date_str))
+
+def normalize_cgpa(value):
+    if value is None:
+        return None
+
+    try:
+        value = float(value)
+
+        if value > 10:
+            value = value / 10
+
+        if value > 10:
+            return None
+
+        return round(value, 2)
+
+    except:
+        return None
