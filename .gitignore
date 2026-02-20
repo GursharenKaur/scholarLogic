@@ -35,9 +35,16 @@ yarn-error.log*
 
 # vercel
 .vercel
+.venv
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 # clerk configuration (can include secrets)
 /.clerk/
+
+_pycache_/
+
+logs/
+__pycache__/
+

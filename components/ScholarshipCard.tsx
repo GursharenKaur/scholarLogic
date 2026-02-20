@@ -1,4 +1,6 @@
-"use client"; // <--- Required for onClick events
+"use client";
+
+import { useState, useEffect } from "react";
 
 import {
   Card,
@@ -19,11 +21,17 @@ interface ScholarshipCardProps {
   id: string;
   title: string;
   provider: string;
-  amount?: number | null;
-  location: string;
-  deadline: Date;
+  amount?: number;
+  amountType?: "CASH" | "WAIVER";
+  location?: string;
+  deadline?: Date;
   tags?: string[];
-  isSavedInitial?: boolean; // <--- To show if user already saved it
+  courseRestriction?: string;
+  categoryRestriction?: string;
+  yearRestriction?: string;
+  minCGPA?: number;
+  maxIncome?: number;
+  sourcePdf?: string;
 }
 
 export function ScholarshipCard({
@@ -31,7 +39,8 @@ export function ScholarshipCard({
   title,
   provider,
   amount,
-  location,
+  amountType,
+  location = "Pan-India",
   deadline,
   tags = [],
   isSavedInitial = false,
@@ -53,6 +62,37 @@ export function ScholarshipCard({
         alert(result.error || "Failed to save scholarship");
       }
     });
+  courseRestriction,
+  categoryRestriction,
+  yearRestriction,
+  minCGPA,
+  maxIncome,
+  sourcePdf,
+}: ScholarshipCardProps) {
+  const formatAmount = () => {
+    if (amountType === "WAIVER") return "Tuition Waiver";
+    if (amount && amount > 0) return `₹${amount.toLocaleString("en-IN")}`;
+    return "Not specified";
+  };
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const getDeadlineText = () => {
+    if (!deadline) return "No deadline";
+    if (!mounted) return ""; // Return empty during SSR to avoid hydration mismatch
+    const date = new Date(deadline);
+    return date.toLocaleDateString();
+  };
+
+  const openPdf = () => {
+    if (sourcePdf) {
+      // Use API route to serve PDF with proper headers
+      const pdfUrl = `/api/pdf/${sourcePdf}`;
+      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
@@ -80,6 +120,9 @@ export function ScholarshipCard({
                 )} 
               />
             </button>
+            <Badge variant={amountType === "WAIVER" ? "secondary" : amount && amount > 50000 ? "default" : "outline"}>
+              {amountType === "WAIVER" ? "Waiver" : amount && amount > 50000 ? "High Value" : "Standard"}
+            </Badge>
           </div>
         </CardHeader>
 
@@ -88,8 +131,9 @@ export function ScholarshipCard({
             <IndianRupee className="w-5 h-5 mr-2 text-green-600" />
             <span className="text-2xl font-bold">
               {amount ? amount.toLocaleString("en-IN") : "N/A"}
+            <span className="text-lg font-bold">
+              {formatAmount()}
             </span>
-            <span className="text-sm text-muted-foreground ml-1">/ year</span>
           </div>
 
           <div className="flex gap-4 text-sm text-slate-500">
@@ -102,6 +146,16 @@ export function ScholarshipCard({
               {new Date(deadline).toLocaleDateString("en-US")}
             </div>
           </div>
+
+          {(courseRestriction || categoryRestriction || yearRestriction || minCGPA || maxIncome) && (
+            <div className="space-y-1 text-xs text-slate-600">
+              {courseRestriction && <div>• Course: {courseRestriction}</div>}
+              {categoryRestriction && <div>• Category: {categoryRestriction}</div>}
+              {yearRestriction && <div>• Year: {yearRestriction}</div>}
+              {minCGPA && <div>• Min CGPA: {minCGPA}</div>}
+              {maxIncome && <div>• Max Income: ₹{maxIncome.toLocaleString("en-IN")}</div>}
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2 pt-2">
             {tags.map((tag, i) => (
@@ -118,10 +172,22 @@ export function ScholarshipCard({
 
       <CardFooter className="pt-2">
         <Link href={`/scholarship/${id}`} className="w-full">
+      <CardFooter className="flex gap-2">
+        <Link href={`/scholarship/${id}`} className="flex-1">
           <Button className="w-full bg-blue-600 hover:bg-blue-700">
             View Details
           </Button>
         </Link>
+        {sourcePdf && (
+          <Button
+            onClick={openPdf}
+            variant="outline"
+            className="px-3"
+            title="View Source PDF"
+          >
+            <FileText className="w-4 h-4" />
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

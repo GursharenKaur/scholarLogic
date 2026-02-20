@@ -1,0 +1,7 @@
+pymongo
+python-dotenv
+requests
+pymupdf
+pytesseract
+pillow
+google-genai

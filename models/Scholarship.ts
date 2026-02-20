@@ -6,19 +6,26 @@ export interface IScholarship extends Document{
     // student details 
     title: string;
     provider: string;
-    amount: number;
+    amount?: number;
+    amountType?: "CASH" | "WAIVER";
     deadline: Date;
     location: string;
 
     // ye AI leke ayega M3 da kaam ae eh
     educationLevel: string;
-    minIncome?: number;
+    maxIncome?: number;
     minCGPA?: number;
+    
+    // New restriction fields
+    courseRestriction?: string;
+    categoryRestriction?: string;
+    yearRestriction?: string;
 
     // metadata
-    applyLink: string;
-    description: string;
+    applyLink?: string;
+    description?: string;
     tags: string[];
+    sourcePdf?: string; // New field to store the source PDF filename
     createdAt: Date;
 }
 
@@ -29,17 +36,20 @@ const ScholarshipSchema = new Schema<IScholarship>(
   {
     title: { type: String, required: true },
     provider: { type: String, required: true },
-    amount: { type: Number, required: true },
-    deadline: { type: Date, required: true },
+    amount: { type: Number },
+    amountType: { type: String, enum: ["CASH", "WAIVER"] },
+    deadline: { type: Date },
     location: { type: String, default: "Pan-India" },
-    
     educationLevel: { type: String, default: "Any" },
-    minIncome: { type: Number }, // optional thats why we used question mark in interface
-    minCGPA: { type: Number },   // Optional
-    
-    applyLink: { type: String, required: true },
+    maxIncome: { type: Number },
+    minCGPA: { type: Number },
+    courseRestriction: { type: String },
+    categoryRestriction: { type: String },
+    yearRestriction: { type: String },
+    applyLink: { type: String },
     description: { type: String },
     tags: { type: [String], default: [] },
+    sourcePdf: { type: String }, // New field to store the source PDF filename
   },
   { timestamps: true } // Automatically adds createdAt and updatedAt
 );
