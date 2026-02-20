@@ -1,8 +1,7 @@
 pymongo
 python-dotenv
-pdfplumber
 requests
-pdf2image
+pymupdf
 pytesseract
 pillow
-# google-genai
+google-genai

@@ -5,7 +5,7 @@ client = MongoClient(MONGO_URI)
 db = client["Data"]
 collection = db["scholarships"]
 
-def insert_if_not_exists(data):
+def insert_if_not_exists(data, source_pdf=None):
     # Clean and validate required fields
     data["title"] = data["title"].strip() if data.get("title") else ""
     data["provider"] = data["provider"].strip() if data.get("provider") else ""
@@ -40,6 +40,7 @@ def insert_if_not_exists(data):
         "location": "Pan-India",  # Default location
         "educationLevel": "Any",  # Default education level
         "tags": [],  # Default empty tags
+        "sourcePdf": source_pdf,  # Add source PDF filename
     }
 
     collection.insert_one(document)
