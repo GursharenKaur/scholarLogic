@@ -27,11 +27,13 @@ def extract_text_from_pdf(path):
     # If text too short → run OCR
     if len(text.strip()) < 100:
         print("⚠ No text layer detected. Running OCR...")
-        images = convert_from_path(path)
-
-        for img in images:
-            ocr_text = pytesseract.image_to_string(img)
-            text += ocr_text
+        try:
+            images = convert_from_path(path)
+            for img in images:
+                ocr_text = pytesseract.image_to_string(img)
+                text += ocr_text
+        except Exception as e:
+            print(f"⚠ OCR failed (missing tesseract or poppler?): {e}")
     
     if not text.strip():
         raise ValueError("PDF contains no readable text")
@@ -41,7 +43,7 @@ def extract_text_from_pdf(path):
 
 
 
-def process_text(text):
+def process_text(text, pdf_filename):
     prompt = """You are a precise scholarship information extraction engine.
 
 STRICT RULES:
@@ -99,7 +101,7 @@ TEXT TO ANALYZE:
         data_list = safe_json_parse(response)
         for data in data_list:
             validated = validate_data(data)
-            success = insert_if_not_exists(validated)
+            success = insert_if_not_exists(validated, pdf_filename)
             if success:
                 logging.info(f"Inserted scholarship: {validated['title']}")
             time.sleep(5)
@@ -116,10 +118,10 @@ def main():
         if file.endswith(".pdf"):
             print(f"Processing {file}...")
             file_path = os.path.join(folder, file)
-            text = extract_text_from_pdf(file_path)
 
             try:
-                process_text(text)
+                text = extract_text_from_pdf(file_path)
+                process_text(text, file)
                 print(f"✅ Successfully processed: {file}")
             except ValueError as ve:
                 logging.error(f"Value error processing {file}: {str(ve)}")

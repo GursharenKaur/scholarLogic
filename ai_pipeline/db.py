@@ -5,7 +5,7 @@ client = MongoClient(MONGO_URI)
 db = client["Data"]
 collection = db["scholarships"]
 
-def insert_if_not_exists(data):
+def insert_if_not_exists(data, pdf_filename=None):
     # Clean and validate required fields
     data["title"] = data["title"].strip() if data.get("title") else ""
     data["provider"] = data["provider"].strip() if data.get("provider") else ""
@@ -20,7 +20,11 @@ def insert_if_not_exists(data):
     })
 
     if existing:
-        print("⚠ Scholarship already exists.")
+        if pdf_filename and not existing.get("sourcePdf"):
+            collection.update_one({"_id": existing["_id"]}, {"$set": {"sourcePdf": pdf_filename}})
+            print(f"✅ Updated existing scholarship '{data['title']}' with PDF link: {pdf_filename}")
+        else:
+            print("⚠ Scholarship already exists.")
         return False
 
     # Prepare document with new schema
@@ -38,8 +42,8 @@ def insert_if_not_exists(data):
         "applyLink": data.get("applyLink"),
         "description": data.get("description"),
         "location": "Pan-India",  # Default location
-        "educationLevel": "Any",  # Default education level
         "tags": [],  # Default empty tags
+        "sourcePdf": pdf_filename,
     }
 
     collection.insert_one(document)

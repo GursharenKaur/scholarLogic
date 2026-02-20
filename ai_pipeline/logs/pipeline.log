@@ -137,3 +137,16 @@ INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Ed
 INFO:root:Inserted scholarship: PRAGATI SCHOLARSHIP SCHEME
 INFO:root:Inserted scholarship: Reliance Foundation Undergraduate Scholarships 2025-26
 INFO:root:Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_Normal
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_Special
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_Lateral entry
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship_Normal
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship_Special
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship_Lateral entry
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Normal)
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Special)
+INFO:root:Inserted scholarship: TIET Merit-cum-Means Scholarship (Lateral Entry)
+ERROR:root:Value error processing sample2.pdf: PDF contains no readable text
+INFO:root:Inserted scholarship: PRAGATI SCHOLARSHIP SCHEME
+ERROR:root:Value error processing sample4.pdf: PDF contains no readable text
+ERROR:root:Value error processing sample5.pdf: PDF contains no readable text
