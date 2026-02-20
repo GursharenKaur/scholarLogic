@@ -99,7 +99,7 @@ export function ScholarshipCard({
             </div>
             <div className="flex items-center">
               <Calendar className="w-4 h-4 mr-1" />
-              {new Date(deadline).toLocaleDateString()}
+              {new Date(deadline).toLocaleDateString("en-US")}
             </div>
           </div>
 
