@@ -25,6 +25,7 @@ export interface IScholarship extends Document{
     applyLink?: string;
     description?: string;
     tags: string[];
+    sourcePdf?: string; // New field to store the source PDF filename
     createdAt: Date;
 }
 
@@ -48,6 +49,7 @@ const ScholarshipSchema = new Schema<IScholarship>(
     applyLink: { type: String },
     description: { type: String },
     tags: { type: [String], default: [] },
+    sourcePdf: { type: String }, // New field to store the source PDF filename
   },
   { timestamps: true } // Automatically adds createdAt and updatedAt
 );
