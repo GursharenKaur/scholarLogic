@@ -15,10 +15,13 @@ interface UserProfile {
 interface ScholarshipData {
   _id: string; // MongoDB always returns _id
   title: string;
+  provider: string;
   amount: number;
+  location: string;
+  deadline: Date;
+  tags: string[];
   type: "Merit" | "Need" | "Tech";
   educationLevel: "Undergraduate" | "Postgraduate";
-  deadline: Date;
   description: string;
   minCGPA?: number;
   minIncome?: number;
@@ -102,12 +105,13 @@ export default async function Home() {
           {validScholarships.map((scholarship) => (
             <ScholarshipCard 
               key={scholarship._id.toString()} 
-              // 👇 CHANGE THIS LINE
-              // Instead of passing the whole object, we "spread" it (...)
-              {...scholarship} 
-              
-              // We keep this just in case your card expects 'id' specifically
-              id={scholarship._id.toString()} 
+              id={scholarship._id.toString()}
+              title={scholarship.title}
+              provider={scholarship.provider}
+              amount={scholarship.amount}
+              location={scholarship.location}
+              deadline={scholarship.deadline}
+              tags={scholarship.tags}
             />
           ))}
         </div>

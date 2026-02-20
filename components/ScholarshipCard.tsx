@@ -19,7 +19,7 @@ interface ScholarshipCardProps {
   id: string;
   title: string;
   provider: string;
-  amount: number;
+  amount?: number | null;
   location: string;
   deadline: Date;
   tags?: string[];
@@ -87,7 +87,7 @@ export function ScholarshipCard({
           <div className="flex items-center text-slate-700">
             <IndianRupee className="w-5 h-5 mr-2 text-green-600" />
             <span className="text-2xl font-bold">
-              {amount.toLocaleString("en-IN")}
+              {amount ? amount.toLocaleString("en-IN") : "N/A"}
             </span>
             <span className="text-sm text-muted-foreground ml-1">/ year</span>
           </div>

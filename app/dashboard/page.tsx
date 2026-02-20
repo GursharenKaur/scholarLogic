@@ -95,7 +95,12 @@ export default async function DashboardPage() {
                 <ScholarshipCard 
                   key={app._id} 
                   id={app.scholarshipId._id.toString()}
-                  {...app.scholarshipId} 
+                  title={app.scholarshipId.title}
+                  provider={app.scholarshipId.provider}
+                  amount={app.scholarshipId.amount}
+                  location={app.scholarshipId.location}
+                  deadline={app.scholarshipId.deadline}
+                  tags={app.scholarshipId.tags}
                 />
               ))}
             </div>
