@@ -13,7 +13,7 @@ interface UserProfile {
 }
 
 interface ScholarshipData {
-  _id: string; // MongoDB always returns _id
+  _id: string; // MongoDB always returns _id as string after conversion
   title: string;
   provider: string;
   amount?: number;
@@ -28,6 +28,7 @@ interface ScholarshipData {
   applyLink?: string;
   location?: string;
   educationLevel?: string;
+  sourcePdf?: string; // New field for source PDF
 }
 
 export default async function Home() {
@@ -37,10 +38,14 @@ export default async function Home() {
   // 3. Get the current logged-in user from Clerk
   const clerkUser = await currentUser();
 
-  // 4. Fetch ALL Scholarships
-  // .lean() returns plain JS objects, but we cast it to 'unknown' first, then our Type
-  const allScholarships = await Scholarship.find({}).sort({ createdAt: -1 }).lean() as unknown as ScholarshipData[];
-  
+  // 4. Fetch ALL Scholarships and convert ObjectId to string
+  const rawScholarships = await Scholarship.find({}).sort({ createdAt: -1 }).lean();
+  const allScholarships: ScholarshipData[] = rawScholarships.map(scholarship => ({
+    ...scholarship,
+    _id: scholarship._id.toString(),
+    deadline: scholarship.deadline ? new Date(scholarship.deadline) : undefined,
+  }));
+
   // 5. Default: Show everything
   let validScholarships: ScholarshipData[] = allScholarships;
   let userProfile: UserProfile | null = null;

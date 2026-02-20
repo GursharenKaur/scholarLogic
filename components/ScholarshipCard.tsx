@@ -1,3 +1,7 @@
+"use client";
+
+import { useState, useEffect } from "react";
+
 import {
   Card,
   CardContent,
@@ -7,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, IndianRupee } from "lucide-react";
+import { Calendar, MapPin, IndianRupee, FileText } from "lucide-react";
 import Link from "next/link";
 
 interface ScholarshipCardProps {
@@ -24,6 +28,7 @@ interface ScholarshipCardProps {
   yearRestriction?: string;
   minCGPA?: number;
   maxIncome?: number;
+  sourcePdf?: string;
 }
 
 export function ScholarshipCard({
@@ -40,6 +45,7 @@ export function ScholarshipCard({
   yearRestriction,
   minCGPA,
   maxIncome,
+  sourcePdf,
 }: ScholarshipCardProps) {
   const formatAmount = () => {
     if (amountType === "WAIVER") return "Tuition Waiver";
@@ -47,9 +53,24 @@ export function ScholarshipCard({
     return "Not specified";
   };
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const getDeadlineText = () => {
     if (!deadline) return "No deadline";
-    return new Date(deadline).toLocaleDateString();
+    if (!mounted) return ""; // Return empty during SSR to avoid hydration mismatch
+    const date = new Date(deadline);
+    return date.toLocaleDateString();
+  };
+
+  const openPdf = () => {
+    if (sourcePdf) {
+      // Use API route to serve PDF with proper headers
+      const pdfUrl = `/api/pdf/${sourcePdf}`;
+      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
@@ -111,12 +132,22 @@ export function ScholarshipCard({
         </CardContent>
       </div>
 
-      <CardFooter>
-        <Link href={`/scholarship/${id}`} className="w-full">
+      <CardFooter className="flex gap-2">
+        <Link href={`/scholarship/${id}`} className="flex-1">
           <Button className="w-full bg-blue-600 hover:bg-blue-700">
             View Details
           </Button>
         </Link>
+        {sourcePdf && (
+          <Button
+            onClick={openPdf}
+            variant="outline"
+            className="px-3"
+            title="View Source PDF"
+          >
+            <FileText className="w-4 h-4" />
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );
