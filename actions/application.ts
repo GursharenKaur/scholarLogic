@@ -7,34 +7,39 @@ import { revalidatePath } from "next/cache";
 
 /**
  * Toggles the "Saved" status of a scholarship for the logged-in user.
- * If already saved, it removes it. If not, it creates a "Saved" entry.
+ * Returns { success: true } on success or { success: false, error } on failure.
+ * Never throws — safe to call from client components.
  */
-export async function toggleSaveScholarship(scholarshipId: string) {
-  const { userId } = await auth();
-
-  if (!userId) {
-    throw new Error("You must be signed in to save scholarships.");
-  }
-
-  await connectToDatabase();
-
+export async function toggleSaveScholarship(
+  scholarshipId: string
+): Promise<{ success: boolean; error?: string; message?: string }> {
   try {
-    // Check if the application record already exists
+    const { userId } = await auth();
+
+    if (!userId) {
+      return { success: false, error: "You must be signed in to save scholarships." };
+    }
+
+    await connectToDatabase();
+
     const existingApplication = await Application.findOne({
       clerkId: userId,
       scholarshipId: scholarshipId,
     });
 
     if (existingApplication) {
-      // If it exists and is just "Saved", we remove it (unsave)
-      // If it is "Applied" or "Won", we probably shouldn't delete it
       if (existingApplication.status === "Saved") {
+        // Unsave — delete the record
         await Application.findByIdAndDelete(existingApplication._id);
       } else {
-        return { message: "Cannot unsave an active application." };
+        // Applied / Won — don't remove, just inform
+        return {
+          success: false,
+          error: "Cannot unsave a scholarship you have already applied to.",
+        };
       }
     } else {
-      // Create a new record with status "Saved"
+      // Save — create new record
       await Application.create({
         clerkId: userId,
         scholarshipId: scholarshipId,
@@ -42,13 +47,16 @@ export async function toggleSaveScholarship(scholarshipId: string) {
       });
     }
 
-    // Refresh the data on the homepage and dashboard
     revalidatePath("/");
     revalidatePath("/dashboard");
-    
+
     return { success: true };
-  } catch (error) {
-    console.error("Error toggling scholarship save:", error);
-    return { success: false, error: "Failed to update scholarship status." };
+  } catch (error: any) {
+    console.error("toggleSaveScholarship error:", error);
+    // Duplicate key = already saved (race condition) — treat as success
+    if (error?.code === 11000) {
+      return { success: true };
+    }
+    return { success: false, error: "Something went wrong. Please try again." };
   }
 }

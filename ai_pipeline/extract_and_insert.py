@@ -206,9 +206,9 @@ def main():
         if file.endswith(".pdf"):
             print(f"Processing {file}...")
             file_path = os.path.join(folder, file)
-            text = extract_text_from_pdf(file_path)
 
             try:
+                text = extract_text_from_pdf(file_path)
                 process_text(text, file)
                 print(f"✅ Successfully processed: {file}")
             except ValueError as ve:
