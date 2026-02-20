@@ -1,5 +1,6 @@
 import { connectToDatabase } from "@/lib/db";
 import Scholarship from "@/models/Scholarship";
+import Application from "@/models/Application";
 import User from "@/models/User";
 import { currentUser } from "@clerk/nextjs/server";
 import { ScholarshipCard } from "@/components/ScholarshipCard";
@@ -46,21 +47,29 @@ export default async function Home() {
     deadline: scholarship.deadline ? new Date(scholarship.deadline) : undefined,
   }));
 
-  // 5. Default: Show everything
+  // 5. Default: Show everything, track saved IDs
   let validScholarships: ScholarshipData[] = allScholarships;
   let userProfile: UserProfile | null = null;
+  let savedScholarshipIds = new Set<string>();
 
-  // 6. The "Matching Logic"
+  // 6. The "Matching Logic" + fetch saved scholarships
   if (clerkUser) {
-    const user = await User.findOne({ clerkId: clerkUser.id }).lean();
-    
+    const [user, savedApplications] = await Promise.all([
+      User.findOne({ clerkId: clerkUser.id }).lean(),
+      Application.find({ clerkId: clerkUser.id, status: "Saved" }).lean(),
+    ]);
+
+    // Build a Set of saved scholarship IDs for O(1) lookup
+    savedScholarshipIds = new Set(
+      savedApplications.map((app) => app.scholarshipId.toString())
+    );
+
     if (user) {
-      // Cast the DB result to our UserProfile type
       userProfile = user as unknown as UserProfile;
 
       // FILTER: Only show eligible scholarships
       validScholarships = allScholarships.filter((scholarship) => {
-        const requiredCGPA = scholarship.minCGPA || 0; 
+        const requiredCGPA = scholarship.minCGPA || 0;
         return userProfile!.cgpa >= requiredCGPA;
       });
     }
@@ -96,7 +105,7 @@ export default async function Home() {
           <div className="bg-green-100 border border-green-300 p-4 rounded-xl text-green-800">
             <p className="font-bold">Welcome back, {userProfile.name || "Student"}! 👋</p>
             <p className="text-sm">
-              Based on your profile (CGPA: <strong>{userProfile.cgpa}</strong>), 
+              Based on your profile (CGPA: <strong>{userProfile.cgpa}</strong>),
               we found <strong>{validScholarships.length}</strong> eligible scholarships for you.
             </p>
           </div>
@@ -111,15 +120,23 @@ export default async function Home() {
       {validScholarships.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {validScholarships.map((scholarship) => (
-            <ScholarshipCard 
-              key={scholarship._id.toString()} 
+            <ScholarshipCard
+              key={scholarship._id.toString()}
               id={scholarship._id.toString()}
               title={scholarship.title}
               provider={scholarship.provider}
               amount={scholarship.amount}
+              amountType={scholarship.amountType}
               location={scholarship.location}
               deadline={scholarship.deadline}
-              tags={scholarship.tags}
+              tags={(scholarship as any).tags}
+              courseRestriction={scholarship.courseRestriction}
+              categoryRestriction={scholarship.categoryRestriction}
+              yearRestriction={scholarship.yearRestriction}
+              minCGPA={scholarship.minCGPA}
+              maxIncome={scholarship.maxIncome}
+              sourcePdf={scholarship.sourcePdf}
+              isSavedInitial={savedScholarshipIds.has(scholarship._id.toString())}
             />
           ))}
         </div>
