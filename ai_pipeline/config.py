@@ -1,7 +1,10 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load variables from the single root .env.local (one level above ai_pipeline/)
+dotenv_path = Path(__file__).resolve().parent.parent / ".env.local"
+load_dotenv(dotenv_path=dotenv_path)
 
 MONGO_URI = os.getenv("MONGODB_URI")
 MEGALLM_API_KEY = os.getenv("MEGALLM_API_KEY")
