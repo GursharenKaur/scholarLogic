@@ -3,13 +3,12 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { connectToDatabase } from "@/lib/db";
 import User from "@/models/User";
-import { redirect } from "next/navigation";
 
 export async function saveUserProfile(formData: FormData) {
   // 1. Check if user is logged in
   const { userId } = await auth();
   const user = await currentUser();
-  
+
   if (!userId || !user) {
     throw new Error("You must be signed in");
   }
@@ -18,6 +17,8 @@ export async function saveUserProfile(formData: FormData) {
   await connectToDatabase();
 
   // 3. Extract Data from Form
+  const clerkName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+  const name = (formData.get("name") as string)?.trim() || clerkName;
   const cgpa = parseFloat(formData.get("cgpa") as string);
   const income = parseFloat(formData.get("income") as string);
   const course = formData.get("course") as string;
@@ -31,15 +32,38 @@ export async function saveUserProfile(formData: FormData) {
   const disability = formData.get("disability") === "on";
   const firstGeneration = formData.get("firstGeneration") === "on";
   const gender = formData.get("gender") as string;
-  const dateOfBirth = formData.get("dateOfBirth") ? new Date(formData.get("dateOfBirth") as string) : undefined;
+  const dateOfBirth = formData.get("dateOfBirth")
+    ? new Date(formData.get("dateOfBirth") as string)
+    : undefined;
 
-  // 4. Update or Create the User in MongoDB
+  // 4. Collect uploaded document metadata (URLs saved by /api/upload-document)
+  const docTypeLabels: Record<string, string> = {
+    income: "Income Certificate",
+    resume: "Resume",
+    marksheet: "Mark Sheet",
+    idproof: "ID Proof",
+    category: "Category Certificate",
+    disability: "Disability Certificate",
+  };
+
+  const documents: { type: string; fileName: string; fileUrl: string; publicId: string; uploadedAt: Date }[] = [];
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith("docUrl_") && typeof value === "string" && value.length > 0) {
+      const docKey = key.replace("docUrl_", "");
+      const docLabel = docTypeLabels[docKey] ?? "Other";
+      const fileName = (formData.get(`docName_${docKey}`) as string) ?? "";
+      const publicId = (formData.get(`docPublicId_${docKey}`) as string) ?? "";
+      documents.push({ type: docLabel, fileName, fileUrl: value, publicId, uploadedAt: new Date() });
+    }
+  }
+
+  // 5. Update or Create the User in MongoDB
   await User.findOneAndUpdate(
     { clerkId: userId },
     {
       clerkId: userId,
       email: user.emailAddresses[0].emailAddress,
-      name: `${user.firstName} ${user.lastName}`,
+      name,
       cgpa,
       income,
       course,
@@ -54,12 +78,14 @@ export async function saveUserProfile(formData: FormData) {
       firstGeneration,
       gender,
       dateOfBirth,
+      // Only overwrite documents if new ones were uploaded
+      ...(documents.length > 0 && { documents }),
     },
-    { upsert: true, new: true } // Create if doesn't exist
+    { upsert: true, new: true }
   );
 
-  // 5. Go back to homepage
-  redirect("/");
+  // Return successfully — client handles navigation via router.push('/home')
+  return { success: true };
 }
 
 export async function getUserProfile() {
