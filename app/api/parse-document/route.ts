@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processDocument } from '@/document_parser/ocrService';
 import { extractProfileData, mapExtractedDataToForm } from '@/document_parser/profileExtractor';
-import { DocumentType } from '@/document_parser/types/profileData';
+import { DocumentType, MappedFormData } from '@/document_parser/types/profileData';
 
 /**
  * POST /api/parse-document
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         }
 
         // ── Step 2: AI profile extraction ──────────────────────────────────────
-        let mappedData: Record<string, unknown> = {};
+        let mappedData: MappedFormData = {};
         try {
             const extractionResult = await extractProfileData(extracted.text, documentType);
             mappedData = mapExtractedDataToForm(extractionResult.data);
