@@ -12,6 +12,7 @@
   "dependencies": {
     "@clerk/nextjs": "^6.37.4",
     "@google/generative-ai": "^0.24.1",
+    "@napi-rs/canvas": "^0.1.94",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.9.0",
     "clsx": "^2.1.1",
@@ -22,9 +23,11 @@
     "openai": "^6.22.0",
     "pdf-parse": "1.1.1",
     "pdf2pic": "^2.1.4",
+    "pdfjs-dist": "^5.4.624",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "skia-canvas": "^3.0.8",
     "tailwind-merge": "^3.4.0",
     "tesseract.js": "^5.0.4"
   },

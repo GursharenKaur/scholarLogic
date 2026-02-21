@@ -508,3 +508,7 @@ INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.
 2026-02-21 11:39:02,617 INFO Inserted scholarship: Reliance Foundation Undergraduate Scholarships
 2026-02-21 11:39:09,449 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
 2026-02-21 11:39:09,738 INFO Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23
+2026-02-22 00:50:51,939 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-22 00:50:52,249 INFO Inserted scholarship: Merit-cum-Means Scholarship_Normal
+2026-02-22 00:50:52,504 INFO Inserted scholarship: Merit-cum-Means Scholarship_Special
+2026-02-22 00:50:52,658 INFO Inserted scholarship: Merit-cum-means Scholarship_Lateral entry

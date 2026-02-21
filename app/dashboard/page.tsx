@@ -8,7 +8,7 @@ import { ScholarshipCard } from "@/components/ScholarshipCard";
 import { DocumentVault } from "@/components/DocumentVault";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LayoutDashboard, Bookmark, Send, Trophy, FileText } from "lucide-react";
+import { Bookmark, FileText } from "lucide-react";
 
 export default async function DashboardPage() {
   // 1. Auth Guard
@@ -29,8 +29,6 @@ export default async function DashboardPage() {
 
   // 3. Categorize scholarship data
   const saved = (applications as any[]).filter((app) => app.status === "Saved");
-  const applied = (applications as any[]).filter((app) => app.status === "Applied");
-  const won = (applications as any[]).filter((app) => app.status === "Won");
 
   // 4. Serialize documents for the client component
   const documents = ((userProfile as any)?.documents ?? []).map((doc: any) => ({
@@ -53,7 +51,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 max-w-md">
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Saved</CardTitle>
@@ -61,24 +59,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{saved.length}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-orange-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Applied</CardTitle>
-            <Send className="w-4 h-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{applied.length}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Wins</CardTitle>
-            <Trophy className="w-4 h-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{won.length}</div>
+            <p className="text-xs text-muted-foreground">saved scholarships</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-purple-500 bg-purple-50/30">
@@ -95,10 +76,8 @@ export default async function DashboardPage() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="saved" className="w-full">
-        <TabsList className="grid w-full max-w-lg grid-cols-4">
+        <TabsList className="grid w-full max-w-xs grid-cols-2">
           <TabsTrigger value="saved">Saved</TabsTrigger>
-          <TabsTrigger value="applied">Applied</TabsTrigger>
-          <TabsTrigger value="won">Won</TabsTrigger>
           <TabsTrigger value="documents">My Docs</TabsTrigger>
         </TabsList>
 
@@ -125,19 +104,6 @@ export default async function DashboardPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="applied" className="pt-6">
-          <div className="text-center py-20 border-2 border-dashed rounded-xl">
-            <p className="text-muted-foreground">Tracking for applied scholarships coming soon.</p>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="won" className="pt-6">
-          <div className="text-center py-20 bg-green-50 border-2 border-green-200 border-dashed rounded-xl">
-            <p className="text-green-700 font-medium">Your successful awards will appear here!</p>
-          </div>
-        </TabsContent>
-
-        {/* ✅ Document Vault tab — now live */}
         <TabsContent value="documents" className="pt-6">
           <DocumentVault documents={documents} />
         </TabsContent>

@@ -9,7 +9,7 @@ import fitz          # PyMuPDF
 import pytesseract
 from PIL import Image
 
-from megallm_client import call_megallm
+from MEGALLM_client import call_megallm
 from validator import validate_data
 from db import (
     insert_if_not_exists,
