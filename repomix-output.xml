@@ -1,0 +1,3787 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+actions/ai.ts
+actions/application.ts
+actions/scholarship.ts
+actions/user.ts
+ai_pipeline/config.py
+ai_pipeline/db.py
+ai_pipeline/extract_and_insert.py
+ai_pipeline/gemini_client.py
+ai_pipeline/MegaLLM_client.py
+ai_pipeline/pdfs/sample1.pdf
+ai_pipeline/pdfs/sample2.pdf
+ai_pipeline/pdfs/sample3.pdf
+ai_pipeline/pdfs/sample4.pdf
+ai_pipeline/pdfs/sample5.pdf
+ai_pipeline/requirements.txt
+ai_pipeline/validator.py
+app/admin/page.tsx
+app/api/pdf/[filename]/route.ts
+app/dashboard/page.tsx
+app/favicon.ico
+app/globals.css
+app/home/page.tsx
+app/layout.tsx
+app/onboarding/page.tsx
+app/page.tsx
+app/scholarship/[id]/page.tsx
+components.json
+components/AISection.tsx
+components/ScholarshipCard.tsx
+components/ui/badge.tsx
+components/ui/button.tsx
+components/ui/card.tsx
+components/ui/tabs.tsx
+eslint.config.mjs
+lib/db.ts
+lib/utils.ts
+middleware.ts
+models/Application.ts
+models/Scholarship.ts
+models/User.ts
+next.config.ts
+package.json
+postcss.config.mjs
+public/file.svg
+public/globe.svg
+public/next.svg
+public/vercel.svg
+public/window.svg
+README.md
+tsconfig.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="ai_pipeline/MegaLLM_client.py">
+"""
+MegaLLM client for the AI pipeline.
+
+MegaLLM exposes an OpenAI-compatible API at https://ai.megallm.io/v1,
+so we use the standard `openai` SDK with a custom base_url.
+
+Import in the rest of the pipeline:
+    from megallm_client import call_megallm, call_megallm_with_json_schema
+"""
+
+from openai import OpenAI
+from config import MEGALLM_API_KEY, MEGALLM_MODEL
+import json
+import re
+
+# ── Client setup ────────────────────────────────────────────────────────────
+client = OpenAI(
+    base_url="https://ai.megallm.io/v1",
+    api_key=MEGALLM_API_KEY,
+)
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+def _clean_json_response(text: str) -> str:
+    """
+    Strip markdown code fences and surrounding whitespace from model output.
+    Handles:
+      - ```json\\n[...]\\n```
+      - ```\\n[...]\\n```
+      - Leading/trailing whitespace and newlines
+    """
+    text = text.strip()
+    # Remove opening fence (```json or ```)
+    text = re.sub(r"^```(?:json)?\s*\n?", "", text, flags=re.IGNORECASE)
+    # Remove closing fence
+    text = re.sub(r"\n?```\s*$", "", text)
+    return text.strip()
+
+
+def _extract_json_block(text: str) -> str:
+    """
+    Try to extract the first valid JSON array or object from the text,
+    even if there is surrounding prose.
+    """
+    text = _clean_json_response(text)
+
+    # Fast path: if it already parses, return as-is
+    try:
+        json.loads(text)
+        return text
+    except json.JSONDecodeError:
+        pass
+
+    # Try to find a JSON array first (our expected format)
+    match = re.search(r"(\[.*\])", text, re.DOTALL)
+    if match:
+        candidate = match.group(1)
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            pass
+
+    # Try to find a JSON object
+    match = re.search(r"(\{.*\})", text, re.DOTALL)
+    if match:
+        candidate = match.group(1)
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            pass
+
+    # Give up and return cleaned text (caller will handle JSONDecodeError)
+    return text
+
+
+# ── Public API ───────────────────────────────────────────────────────────────
+def call_megallm(prompt: str, use_json_mode: bool = True) -> str:
+    """
+    Call MegaLLM with optional JSON mode for structured responses.
+
+    Args:
+        prompt (str): The prompt to send.
+        use_json_mode (bool): Whether to request JSON-only output.
+
+    Returns:
+        str: Cleaned response text (valid JSON string when use_json_mode=True).
+    """
+    full_prompt = prompt
+    if use_json_mode:
+        full_prompt = (
+            prompt
+            + "\n\nCRITICAL: Respond with RAW JSON only — no markdown fences, "
+            "no ```json blocks, no explanation. Start your response directly "
+            "with [ or { and end with ] or }."
+        )
+
+    kwargs = {
+        "model": MEGALLM_MODEL,
+        "messages": [{"role": "user", "content": full_prompt}],
+        "temperature": 0.1,
+        "top_p": 0.8,
+        "max_tokens": 8192,
+    }
+
+    try:
+        response = client.chat.completions.create(**kwargs)
+        text = response.choices[0].message.content
+
+        if not text or not text.strip():
+            raise Exception("Empty response from MegaLLM")
+
+        if use_json_mode:
+            return _extract_json_block(text)
+
+        return text.strip()
+
+    except Exception as e:
+        raise Exception(f"MegaLLM API Error: {str(e)}")
+
+
+def call_megallm_with_json_schema(prompt: str, json_schema: dict) -> dict:
+    """
+    Call MegaLLM with a schema hint injected into the prompt.
+
+    Args:
+        prompt (str): The prompt to send.
+        json_schema (dict): JSON schema describing the expected response.
+
+    Returns:
+        dict: Parsed JSON response.
+    """
+    schema_hint = json.dumps(json_schema, indent=2)
+    augmented_prompt = (
+        f"{prompt}\n\n"
+        f"Respond ONLY with valid JSON matching this schema:\n{schema_hint}"
+    )
+
+    try:
+        raw = call_megallm(augmented_prompt, use_json_mode=True)
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise Exception(f"Invalid JSON response from MegaLLM: {str(e)}")
+    except Exception as e:
+        raise Exception(f"MegaLLM API Error: {str(e)}")
+</file>
+
+<file path="app/globals.css">
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.129 0.042 264.695);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.129 0.042 264.695);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.129 0.042 264.695);
+  --primary: oklch(0.208 0.042 265.755);
+  --primary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: oklch(0.968 0.007 247.896);
+  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.554 0.046 257.417);
+  --accent: oklch(0.968 0.007 247.896);
+  --accent-foreground: oklch(0.208 0.042 265.755);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.929 0.013 255.508);
+  --input: oklch(0.929 0.013 255.508);
+  --ring: oklch(0.704 0.04 256.788);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.984 0.003 247.858);
+  --sidebar-foreground: oklch(0.129 0.042 264.695);
+  --sidebar-primary: oklch(0.208 0.042 265.755);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.968 0.007 247.896);
+  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
+  --sidebar-border: oklch(0.929 0.013 255.508);
+  --sidebar-ring: oklch(0.704 0.04 256.788);
+}
+
+.dark {
+  --background: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.984 0.003 247.858);
+  --card: oklch(0.208 0.042 265.755);
+  --card-foreground: oklch(0.984 0.003 247.858);
+  --popover: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.984 0.003 247.858);
+  --primary: oklch(0.929 0.013 255.508);
+  --primary-foreground: oklch(0.208 0.042 265.755);
+  --secondary: oklch(0.279 0.041 260.031);
+  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
+  --accent: oklch(0.279 0.041 260.031);
+  --accent-foreground: oklch(0.984 0.003 247.858);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.551 0.027 264.364);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.208 0.042 265.755);
+  --sidebar-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.279 0.041 260.031);
+  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.551 0.027 264.364);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    @apply bg-background text-foreground;
+  }
+}
+</file>
+
+<file path="app/home/page.tsx">
+import { connectToDatabase } from "@/lib/db";
+import Scholarship from "@/models/Scholarship";
+import Application from "@/models/Application";
+import User from "@/models/User";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { ScholarshipCard } from "@/components/ScholarshipCard";
+import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import Link from "next/link";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface UserProfile {
+    name: string;
+    cgpa: number;
+    income?: number;   // 0 = not set; we skip income check in that case
+    course?: string;   // e.g. "B.Tech CSE"
+    category?: string; // "General" | "OBC" | "SC" | "ST" | "EWS" | "Other"
+    graduationYear?: number;
+}
+
+interface ScholarshipData {
+    _id: string;
+    title: string;
+    provider: string;
+    amount?: number;
+    amountType?: "CASH" | "WAIVER";
+    deadline?: Date;
+    description?: string;
+    minCGPA?: number;
+    maxIncome?: number;
+    courseRestriction?: string;   // comma-separated e.g. "BCom, BSc, BA"
+    categoryRestriction?: string; // comma-separated e.g. "SC, ST"
+    yearRestriction?: string;
+    applyLink?: string;
+    location?: string;
+    educationLevel?: string;
+    sourcePdf?: string;
+    tags?: string[];
+}
+
+// ─── Eligibility Helper ───────────────────────────────────────────────────────
+
+/**
+ * Returns true only when every restriction the scholarship specifies is met
+ * by the user's profile. A missing restriction means no constraint → passes.
+ */
+function checkEligibility(
+    scholarship: ScholarshipData,
+    profile: UserProfile | null
+): boolean {
+    if (!profile) return false;
+
+    // 1. CGPA — user must meet the minimum
+    if (scholarship.minCGPA && profile.cgpa < scholarship.minCGPA) return false;
+
+    // 2. Income — only enforce when scholarship has a cap AND user has income > 0
+    //    (income === 0 means "not filled in", skip to avoid false negatives)
+    if (scholarship.maxIncome && profile.income && profile.income > 0) {
+        if (profile.income > scholarship.maxIncome) return false;
+    }
+
+    // 3. Course restriction — e.g. "BCom, BSc, BA"
+    //    User must have at least one word of their course in the allowed list
+    if (scholarship.courseRestriction && profile.course) {
+        const allowed = scholarship.courseRestriction.toLowerCase();
+        const userCourse = profile.course.toLowerCase();
+        const anyMatch = userCourse
+            .split(/[\s,]+/)
+            .some((word) => word.length > 1 && allowed.includes(word));
+        if (!anyMatch) return false;
+    }
+
+    // 4. Category restriction — e.g. "SC, ST, OBC"
+    if (scholarship.categoryRestriction && profile.category) {
+        const allowed = scholarship.categoryRestriction.toLowerCase();
+        if (!allowed.includes(profile.category.toLowerCase())) return false;
+    }
+
+    return true;
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
+export default async function Home() {
+    await connectToDatabase();
+
+    // On public routes, currentUser() can throw if Clerk auth context is
+    // not populated. Safely check userId first via auth().
+    const { userId } = await auth();
+    const clerkUser = userId ? await currentUser() : null;
+
+    // Fetch ALL scholarships
+    const rawScholarships = await Scholarship.find({})
+        .sort({ createdAt: -1 })
+        .lean();
+
+    const allScholarships: ScholarshipData[] = rawScholarships.map((s) => ({
+        ...s,
+        _id: s._id.toString(),
+        deadline: s.deadline ? new Date(s.deadline) : undefined,
+    }));
+
+    let userProfile: UserProfile | null = null;
+    let savedScholarshipIds = new Set<string>();
+
+    if (clerkUser) {
+        const [user, savedApplications] = await Promise.all([
+            User.findOne({ clerkId: clerkUser.id }).lean(),
+            Application.find({ clerkId: clerkUser.id, status: "Saved" }).lean(),
+        ]);
+
+        savedScholarshipIds = new Set(
+            savedApplications.map((app) => app.scholarshipId.toString())
+        );
+
+        if (user) {
+            userProfile = user as unknown as UserProfile;
+        }
+    }
+
+    // Tag each scholarship with eligibility, then sort: eligible first
+    const scholarships = allScholarships
+        .map((s) => ({
+            ...s,
+            isEligible: checkEligibility(s, userProfile),
+        }))
+        .sort((a, b) => Number(b.isEligible) - Number(a.isEligible));
+
+    const eligibleCount = scholarships.filter((s) => s.isEligible).length;
+
+    return (
+        <main className="min-h-screen bg-gray-50 p-8">
+            {/* Navbar */}
+            <nav className="flex justify-between items-center mb-12">
+                <h1 className="text-3xl font-bold text-blue-900">
+                    scholar<span className="text-blue-600">Logic</span>
+                </h1>
+                <div className="flex gap-4 items-center">
+                    <Link href="/dashboard" className="text-sm font-medium hover:underline">
+                        My Dashboard
+                    </Link>
+                    <SignedOut>
+                        <SignInButton mode="modal">
+                            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                                Sign In
+                            </button>
+                        </SignInButton>
+                    </SignedOut>
+                    <SignedIn>
+                        <UserButton />
+                    </SignedIn>
+                </div>
+            </nav>
+
+            {/* Welcome / Status Banner */}
+            <div className="mb-8">
+                {userProfile ? (
+                    <div className="bg-green-100 border border-green-300 p-4 rounded-xl text-green-800">
+                        <p className="font-bold">
+                            Welcome back, {userProfile.name || "Student"}! 👋
+                        </p>
+                        <p className="text-sm">
+                            Based on your profile (CGPA: <strong>{userProfile.cgpa}</strong>
+                            {userProfile.course && <>, Course: <strong>{userProfile.course}</strong></>}
+                            {userProfile.category && <>, Category: <strong>{userProfile.category}</strong></>}
+                            ), you are eligible for <strong>{eligibleCount}</strong> out of{" "}
+                            <strong>{scholarships.length}</strong> scholarships. Eligible ones appear first.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-blue-700">
+                        <p className="font-medium">
+                            🔍 Browsing {scholarships.length} scholarships.{" "}
+                            <SignInButton mode="modal">
+                                <button className="underline font-semibold hover:text-blue-900">
+                                    Sign in
+                                </button>
+                            </SignInButton>{" "}
+                            to see personalised eligibility badges.
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* Scholarship Grid */}
+            {scholarships.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {scholarships.map((scholarship) => (
+                        <ScholarshipCard
+                            key={scholarship._id}
+                            id={scholarship._id}
+                            title={scholarship.title}
+                            provider={scholarship.provider}
+                            amount={scholarship.amount}
+                            amountType={scholarship.amountType}
+                            location={scholarship.location}
+                            deadline={scholarship.deadline}
+                            tags={scholarship.tags}
+                            courseRestriction={scholarship.courseRestriction}
+                            categoryRestriction={scholarship.categoryRestriction}
+                            yearRestriction={scholarship.yearRestriction}
+                            minCGPA={scholarship.minCGPA}
+                            maxIncome={scholarship.maxIncome}
+                            sourcePdf={scholarship.sourcePdf}
+                            isSavedInitial={savedScholarshipIds.has(scholarship._id)}
+                            isEligible={userProfile !== null ? scholarship.isEligible : undefined}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-20">
+                    <p className="text-xl text-gray-500">No scholarships found. 😔</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                        Check back later — new scholarships are added regularly!
+                    </p>
+                </div>
+            )}
+        </main>
+    );
+}
+</file>
+
+<file path="components.json">
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "app/globals.css",
+    "baseColor": "slate",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "rtl": false,
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
+  "registries": {}
+}
+</file>
+
+<file path="components/ui/badge.tsx">
+import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
+import { Slot } from "radix-ui"
+
+import { cn } from "@/lib/utils"
+
+const badgeVariants = cva(
+  "inline-flex items-center justify-center rounded-full border border-transparent px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
+        secondary:
+          "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
+        destructive:
+          "bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+        outline:
+          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 [a&]:hover:underline",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
+
+function Badge({
+  className,
+  variant = "default",
+  asChild = false,
+  ...props
+}: React.ComponentProps<"span"> &
+  VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot.Root : "span"
+
+  return (
+    <Comp
+      data-slot="badge"
+      data-variant={variant}
+      className={cn(badgeVariants({ variant }), className)}
+      {...props}
+    />
+  )
+}
+
+export { Badge, badgeVariants }
+</file>
+
+<file path="components/ui/button.tsx">
+import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
+import { Slot } from "radix-ui"
+
+import { cn } from "@/lib/utils"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive:
+          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+        outline:
+          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost:
+          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+        link: "text-primary underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-9 px-4 py-2 has-[>svg]:px-3",
+        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
+        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+        icon: "size-9",
+        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
+        "icon-sm": "size-8",
+        "icon-lg": "size-10",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+)
+
+function Button({
+  className,
+  variant = "default",
+  size = "default",
+  asChild = false,
+  ...props
+}: React.ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean
+  }) {
+  const Comp = asChild ? Slot.Root : "button"
+
+  return (
+    <Comp
+      data-slot="button"
+      data-variant={variant}
+      data-size={size}
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    />
+  )
+}
+
+export { Button, buttonVariants }
+</file>
+
+<file path="components/ui/card.tsx">
+import * as React from "react"
+
+import { cn } from "@/lib/utils"
+
+function Card({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card"
+      className={cn(
+        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-header"
+      className={cn(
+        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-title"
+      className={cn("leading-none font-semibold", className)}
+      {...props}
+    />
+  )
+}
+
+function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-description"
+      className={cn("text-muted-foreground text-sm", className)}
+      {...props}
+    />
+  )
+}
+
+function CardAction({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-action"
+      className={cn(
+        "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function CardContent({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-content"
+      className={cn("px-6", className)}
+      {...props}
+    />
+  )
+}
+
+function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-footer"
+      className={cn("flex items-center px-6 [.border-t]:pt-6", className)}
+      {...props}
+    />
+  )
+}
+
+export {
+  Card,
+  CardHeader,
+  CardFooter,
+  CardTitle,
+  CardAction,
+  CardDescription,
+  CardContent,
+}
+</file>
+
+<file path="components/ui/tabs.tsx">
+"use client"
+
+import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
+import { Tabs as TabsPrimitive } from "radix-ui"
+
+import { cn } from "@/lib/utils"
+
+function Tabs({
+  className,
+  orientation = "horizontal",
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Root>) {
+  return (
+    <TabsPrimitive.Root
+      data-slot="tabs"
+      data-orientation={orientation}
+      orientation={orientation}
+      className={cn(
+        "group/tabs flex gap-2 data-[orientation=horizontal]:flex-col",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+const tabsListVariants = cva(
+  "rounded-lg p-[3px] group-data-[orientation=horizontal]/tabs:h-9 data-[variant=line]:rounded-none group/tabs-list text-muted-foreground inline-flex w-fit items-center justify-center group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col",
+  {
+    variants: {
+      variant: {
+        default: "bg-muted",
+        line: "gap-1 bg-transparent",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
+
+function TabsList({
+  className,
+  variant = "default",
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.List> &
+  VariantProps<typeof tabsListVariants>) {
+  return (
+    <TabsPrimitive.List
+      data-slot="tabs-list"
+      data-variant={variant}
+      className={cn(tabsListVariants({ variant }), className)}
+      {...props}
+    />
+  )
+}
+
+function TabsTrigger({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+  return (
+    <TabsPrimitive.Trigger
+      data-slot="tabs-trigger"
+      className={cn(
+        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring text-foreground/60 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:border-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent",
+        "data-[state=active]:bg-background dark:data-[state=active]:text-foreground dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 data-[state=active]:text-foreground",
+        "after:bg-foreground after:absolute after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function TabsContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Content>) {
+  return (
+    <TabsPrimitive.Content
+      data-slot="tabs-content"
+      className={cn("flex-1 outline-none", className)}
+      {...props}
+    />
+  )
+}
+
+export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }
+</file>
+
+<file path="eslint.config.mjs">
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;
+</file>
+
+<file path="lib/utils.ts">
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+</file>
+
+<file path="models/Application.ts">
+import mongoose, { Schema, Document, Model } from "mongoose";
+
+export interface IApplication extends Document {
+  clerkId: string; // The User
+  scholarshipId: mongoose.Types.ObjectId; // The Scholarship
+  status: "Saved" | "Applied" | "Rejected" | "Won";
+  appliedAt?: Date;
+}
+
+const ApplicationSchema = new Schema<IApplication>(
+  {
+    clerkId: { type: String, required: true, index: true },
+    scholarshipId: { 
+      type: Schema.Types.ObjectId, 
+      ref: "Scholarship", 
+      required: true 
+    },
+    status: { 
+      type: String, 
+      enum: ["Saved", "Applied", "Rejected", "Won"], 
+      default: "Saved" 
+    },
+    appliedAt: { type: Date },
+  },
+  { timestamps: true }
+);
+
+// Prevent duplicate applications (one user cannot save the same scholarship twice)
+ApplicationSchema.index({ clerkId: 1, scholarshipId: 1 }, { unique: true });
+
+const Application: Model<IApplication> =
+  mongoose.models.Application || mongoose.model<IApplication>("Application", ApplicationSchema);
+
+export default Application;
+</file>
+
+<file path="next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+</file>
+
+<file path="postcss.config.mjs">
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+</file>
+
+<file path="public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+</file>
+
+<file path="actions/application.ts">
+"use server";
+
+import { auth } from "@clerk/nextjs/server";
+import { connectToDatabase } from "@/lib/db";
+import Application from "@/models/Application";
+import { revalidatePath } from "next/cache";
+
+/**
+ * Toggles the "Saved" status of a scholarship for the logged-in user.
+ * Returns { success: true } on success or { success: false, error } on failure.
+ * Never throws — safe to call from client components.
+ */
+export async function toggleSaveScholarship(
+  scholarshipId: string
+): Promise<{ success: boolean; error?: string; message?: string }> {
+  try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return { success: false, error: "You must be signed in to save scholarships." };
+    }
+
+    await connectToDatabase();
+
+    const existingApplication = await Application.findOne({
+      clerkId: userId,
+      scholarshipId: scholarshipId,
+    });
+
+    if (existingApplication) {
+      if (existingApplication.status === "Saved") {
+        // Unsave — delete the record
+        await Application.findByIdAndDelete(existingApplication._id);
+      } else {
+        // Applied / Won — don't remove, just inform
+        return {
+          success: false,
+          error: "Cannot unsave a scholarship you have already applied to.",
+        };
+      }
+    } else {
+      // Save — create new record
+      await Application.create({
+        clerkId: userId,
+        scholarshipId: scholarshipId,
+        status: "Saved",
+      });
+    }
+
+    revalidatePath("/");
+    revalidatePath("/dashboard");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("toggleSaveScholarship error:", error);
+    // Duplicate key = already saved (race condition) — treat as success
+    if (error?.code === 11000) {
+      return { success: true };
+    }
+    return { success: false, error: "Something went wrong. Please try again." };
+  }
+}
+</file>
+
+<file path="actions/scholarship.ts">
+"use server";
+
+import { connectToDatabase } from "@/lib/db";
+import Scholarship from "@/models/Scholarship";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+export async function createScholarship(formData: FormData) {
+  await connectToDatabase();
+
+  const title = formData.get("title");
+  const amount = formData.get("amount");
+  const provider = formData.get("provider");
+  const deadline = formData.get("deadline");
+  const description = formData.get("description");
+  const location = formData.get("location");
+  const applyLink = formData.get("applyLink");
+  
+  // 👇 NEW: Extract Eligibility Data
+  // If the user leaves it empty, we save it as 0 (open to all)
+  const minCGPA = formData.get("minCGPA") ? parseFloat(formData.get("minCGPA") as string) : 0;
+  const minIncome = formData.get("minIncome") ? parseFloat(formData.get("minIncome") as string) : 0;
+
+  await Scholarship.create({
+    title,
+    provider,
+    amount: Number(amount),
+    deadline: new Date(deadline as string),
+    description,
+    location,
+    applyLink,
+    minCGPA,    // Save to DB
+    minIncome,  // Save to DB
+    type: "Merit", // Defaulting for now
+    educationLevel: "Undergraduate", // Defaulting for now
+  });
+
+  revalidatePath("/");
+  redirect("/");
+}
+</file>
+
+<file path="actions/user.ts">
+"use server";
+
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { connectToDatabase } from "@/lib/db";
+import User from "@/models/User";
+import { redirect } from "next/navigation";
+
+export async function saveUserProfile(formData: FormData) {
+  // 1. Check if user is logged in
+  const { userId } = await auth();
+  const user = await currentUser();
+  
+  if (!userId || !user) {
+    throw new Error("You must be signed in");
+  }
+
+  // 2. Connect to DB
+  await connectToDatabase();
+
+  // 3. Extract Data from Form
+  const cgpa = parseFloat(formData.get("cgpa") as string);
+  const income = parseFloat(formData.get("income") as string);
+  const course = formData.get("course") as string;
+  const educationLevel = formData.get("educationLevel") as string;
+  const university = formData.get("university") as string;
+  const graduationYear = parseInt(formData.get("graduationYear") as string);
+  const state = formData.get("state") as string;
+  const country = formData.get("country") as string;
+  const nationality = formData.get("nationality") as string;
+  const category = formData.get("category") as string;
+  const disability = formData.get("disability") === "on";
+  const firstGeneration = formData.get("firstGeneration") === "on";
+  const gender = formData.get("gender") as string;
+  const dateOfBirth = formData.get("dateOfBirth") ? new Date(formData.get("dateOfBirth") as string) : undefined;
+
+  // 4. Update or Create the User in MongoDB
+  await User.findOneAndUpdate(
+    { clerkId: userId },
+    {
+      clerkId: userId,
+      email: user.emailAddresses[0].emailAddress,
+      name: `${user.firstName} ${user.lastName}`,
+      cgpa,
+      income,
+      course,
+      educationLevel,
+      university,
+      graduationYear,
+      state,
+      country,
+      nationality,
+      category,
+      disability,
+      firstGeneration,
+      gender,
+      dateOfBirth,
+    },
+    { upsert: true, new: true } // Create if doesn't exist
+  );
+
+  // 5. Go back to homepage
+  redirect("/");
+}
+</file>
+
+<file path="app/admin/page.tsx">
+import { createScholarship } from "@/actions/scholarship";
+
+export default function AdminPage() {
+  return (
+    <div className="max-w-2xl mx-auto p-10">
+      <h1 className="text-3xl font-bold mb-8">Post New Scholarship (Admin)</h1>
+      
+      <form action={createScholarship} className="space-y-6 bg-white p-6 rounded-xl shadow-md border">
+        
+        {/* Basic Info */}
+        <div>
+          <label className="block font-medium mb-1">Scholarship Title</label>
+          <input name="title" type="text" placeholder="e.g. Super Smart Scholarship" className="w-full p-2 border rounded" required />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-medium mb-1">Provider</label>
+            <input name="provider" type="text" placeholder="Thapar University" className="w-full p-2 border rounded" required />
+          </div>
+          <div>
+            <label className="block font-medium mb-1">Amount (₹)</label>
+            <input name="amount" type="number" placeholder="50000" className="w-full p-2 border rounded" required />
+          </div>
+        </div>
+
+        {/* 👇 NEW SECTION: ELIGIBILITY CRITERIA 👇 */}
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+          <h3 className="font-bold text-blue-800 mb-3">Eligibility Logic (The "Judge")</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-blue-900">Min. CGPA Required</label>
+              <input 
+                name="minCGPA" 
+                type="number" 
+                step="0.1" 
+                placeholder="e.g. 8.5" 
+                className="w-full p-2 border rounded" 
+              />
+              <p className="text-xs text-gray-500 mt-1">Leave empty if no CGPA limit.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-blue-900">Max. Family Income (₹)</label>
+              <input 
+                name="minIncome" // We use 'minIncome' field name for 'Income Ceiling' in the DB
+                type="number" 
+                placeholder="e.g. 600000" 
+                className="w-full p-2 border rounded" 
+              />
+              <p className="text-xs text-gray-500 mt-1">Leave empty if open to all.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Standard Info */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-medium mb-1">Location</label>
+            <input name="location" type="text" placeholder="Pan-India" className="w-full p-2 border rounded" />
+          </div>
+          <div>
+            <label className="block font-medium mb-1">Deadline</label>
+            <input name="deadline" type="date" className="w-full p-2 border rounded" required />
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-medium mb-1">Application Link</label>
+          <input name="applyLink" type="url" placeholder="https://..." className="w-full p-2 border rounded" />
+        </div>
+
+        <div>
+          <label className="block font-medium mb-1">Brief Description</label>
+          <textarea name="description" rows={4} className="w-full p-2 border rounded" required />
+        </div>
+
+        <button type="submit" className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">
+          Push to scholarLogic Database
+        </button>
+      </form>
+    </div>
+  );
+}
+</file>
+
+<file path="app/api/pdf/[filename]/route.ts">
+import { NextRequest, NextResponse } from 'next/server';
+import { readFile } from 'fs/promises';
+import path from 'path';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ filename: string }> }
+) {
+  try {
+    const { filename } = await params;
+
+    console.log('PDF Request - Filename:', filename);
+
+    // Security: Validate filename to prevent directory traversal
+    if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      console.log('PDF Request - Invalid filename:', filename);
+      return NextResponse.json({ error: 'Invalid filename' }, { status: 400 });
+    }
+
+    const filePath = path.join(process.cwd(), 'ai_pipeline', 'pdfs', filename);
+    console.log('PDF Request - Full path:', filePath);
+
+    // Read the PDF file
+    const fileBuffer = await readFile(filePath);
+    console.log('PDF Request - File size:', fileBuffer.length);
+
+    // Return the PDF with proper headers
+    return new NextResponse(fileBuffer, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${filename}"`,
+        'Cache-Control': 'public, max-age=3600',
+      },
+    });
+  } catch (error) {
+    console.error('Error serving PDF:', error);
+    return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
+  }
+}
+</file>
+
+<file path="app/dashboard/page.tsx">
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { connectToDatabase } from "@/lib/db";
+import Application from "@/models/Application";
+import Scholarship from "@/models/Scholarship";
+import { ScholarshipCard } from "@/components/ScholarshipCard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LayoutDashboard, Bookmark, Send, Trophy, FileText } from "lucide-react";
+
+export default async function DashboardPage() {
+  // 1. Auth Guard
+  const { userId } = await auth();
+  const user = await currentUser();
+
+  if (!userId || !user) {
+    redirect("/sign-in");
+  }
+
+  await connectToDatabase();
+
+  // 2. Fetch User's Applications/Saves
+  // We populate the scholarship details so we can render the cards
+  const applications = await Application.find({ clerkId: userId })
+    .populate("scholarshipId")
+    .lean();
+
+  // 3. Categorize Data
+  const saved = applications.filter((app) => app.status === "Saved");
+  const applied = applications.filter((app) => app.status === "Applied");
+  const won = applications.filter((app) => app.status === "Won");
+
+  return (
+    <div className="p-8 max-w-7xl mx-auto min-h-screen space-y-8">
+      {/* Header Section */}
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight">Welcome back, {user.firstName}! 👋</h1>
+        <p className="text-muted-foreground text-lg">
+          Manage your documents and track your scholarship journey.
+        </p>
+      </div>
+
+      {/* Stats Overview */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Saved</CardTitle>
+            <Bookmark className="w-4 h-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{saved.length}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-orange-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Applied</CardTitle>
+            <Send className="w-4 h-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{applied.length}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Wins</CardTitle>
+            <Trophy className="w-4 h-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{won.length}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-purple-500 bg-purple-50/30">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium italic">Doc Vault</CardTitle>
+            <FileText className="w-4 h-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs text-muted-foreground">Status: Phase 2 Pending</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Tabs Logic */}
+      <Tabs defaultValue="saved" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsTrigger value="saved">Saved</TabsTrigger>
+          <TabsTrigger value="applied">Applied</TabsTrigger>
+          <TabsTrigger value="won">Won</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="saved" className="pt-6">
+          {saved.length > 0 ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {saved.map((app: any) => (
+                <ScholarshipCard 
+                  key={app._id} 
+                  id={app.scholarshipId._id.toString()}
+                  title={app.scholarshipId.title}
+                  provider={app.scholarshipId.provider}
+                  amount={app.scholarshipId.amount}
+                  location={app.scholarshipId.location}
+                  deadline={app.scholarshipId.deadline}
+                  tags={app.scholarshipId.tags}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-20 border-2 border-dashed rounded-xl">
+              <p className="text-muted-foreground">No saved scholarships yet. Go explore!</p>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="applied" className="pt-6">
+           <div className="text-center py-20 border-2 border-dashed rounded-xl">
+              <p className="text-muted-foreground">Tracking for applied scholarships coming soon.</p>
+            </div>
+        </TabsContent>
+
+        <TabsContent value="won" className="pt-6">
+           <div className="text-center py-20 bg-green-50 border-2 border-green-200 border-dashed rounded-xl">
+              <p className="text-green-700 font-medium">Your successful awards will appear here!</p>
+            </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+</file>
+
+<file path="app/layout.tsx">
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import { ClerkProvider } from '@clerk/nextjs'
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Create Next App",
+  description: "Generated by create next app",
+};
+
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ClerkProvider>
+      <html lang="en">
+        <body>{children}</body>
+      </html>
+    </ClerkProvider>
+  )
+}
+</file>
+
+<file path="components/AISection.tsx">
+"use client";
+
+import { useState } from "react";
+import { generateEligibilityExplanation, generateSOP } from "@/actions/ai";
+
+interface EligibilityResult {
+  verdict: string;
+  confidence: number;
+  cgpaStatus: boolean;
+  incomeStatus: boolean;
+  explanation: string;
+}
+
+export default function AISection({ scholarshipId }: { scholarshipId: string }) {
+  const [eligibility, setEligibility] = useState<EligibilityResult | null>(null);
+  const [sop, setSop] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  return (
+    <div className="mt-8 space-y-4 border-t pt-6">
+      <h2 className="text-xl font-semibold">Eligibility Assessment Engine</h2>
+
+      {/* Eligibility Button */}
+      <button
+        onClick={async () => {
+          setLoading(true);
+          const res = await generateEligibilityExplanation(scholarshipId);
+          setEligibility(res);
+          setLoading(false);
+        }}
+        className="bg-black text-white px-4 py-2 rounded"
+      >
+        Check Eligibility
+      </button>
+
+      {/* Eligibility Result */}
+      {eligibility && (
+        <div className="bg-slate-100 p-5 rounded-lg space-y-3">
+          
+          {/* Verdict */}
+          <div
+            className={`text-lg font-bold ${
+              eligibility.verdict === "Eligible"
+                ? "text-green-600"
+                : "text-red-600"
+            }`}
+          >
+            {eligibility.verdict}
+          </div>
+
+          {/* Confidence */}
+          <div className="text-sm text-gray-500">
+            Confidence: {eligibility.confidence}%
+          </div>
+
+          {/* Status Indicators */}
+          <div className="space-y-1 text-sm">
+            <div
+              className={
+                eligibility.cgpaStatus ? "text-green-600" : "text-red-600"
+              }
+            >
+              CGPA Requirement {eligibility.cgpaStatus ? "✓ Met" : "✗ Not Met"}
+            </div>
+
+            <div
+              className={
+                eligibility.incomeStatus ? "text-green-600" : "text-red-600"
+              }
+            >
+              Income Requirement{" "}
+              {eligibility.incomeStatus ? "✓ Met" : "✗ Not Met"}
+            </div>
+          </div>
+
+          {/* Explanation */}
+          <p className="text-gray-700">{eligibility.explanation}</p>
+        </div>
+      )}
+
+      {/* SOP Button */}
+      <button
+        onClick={async () => {
+          setLoading(true);
+          const res = await generateSOP(scholarshipId);
+          setSop(res);
+          setLoading(false);
+        }}
+        className="bg-green-600 text-white px-4 py-2 rounded"
+      >
+        Generate SOP
+      </button>
+
+      {/* SOP Output */}
+      {sop && (
+        <textarea
+          value={sop}
+          readOnly
+          className="w-full h-48 border p-3 rounded"
+        />
+      )}
+
+      {loading && (
+        <p className="text-sm text-slate-500">AI is thinking...</p>
+      )}
+    </div>
+  );
+}
+</file>
+
+<file path="lib/db.ts">
+import mongoose from "mongoose";
+
+const MONGODB_URI = process.env.MONGODB_URI!;
+
+if (!MONGODB_URI) {
+  throw new Error("Please define the MONGODB_URI environment variable inside .env.local");
+}
+
+let cached = (global as any).mongoose;
+
+if (!cached) {
+  cached = (global as any).mongoose = { conn: null, promise: null };
+}
+
+// NOTICE THE WORD "export" HERE - This fixes your error
+export async function connectToDatabase() {
+  if (cached.conn) {
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false,
+    };
+
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
+      return mongoose;
+    });
+  }
+  
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
+
+  return cached.conn;
+}
+</file>
+
+<file path="middleware.ts">
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+
+const isPublicRoute = createRouteMatcher(['/', '/home', '/scholarship(.*)']);
+
+export default clerkMiddleware(async (auth, request) => {
+  if (!isPublicRoute(request)) {
+    await auth.protect();
+  }
+});
+
+export const config = {
+  matcher: [
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/(api|trpc)(.*)',
+  ],
+};
+</file>
+
+<file path="models/User.ts">
+import mongoose from "mongoose";
+
+const UserSchema = new mongoose.Schema({
+  clerkId: { type: String, required: true, unique: true }, // Links to Clerk Login
+  email: { type: String, required: true },
+  name: { type: String },
+  cgpa: { type: Number, default: 0 },
+  income: { type: Number, default: 0 }, // Annual family income
+  course: { type: String }, // e.g., "B.Tech CSE"
+
+  // New fields for comprehensive profile
+  educationLevel: { type: String, enum: ["High School", "Undergraduate", "Postgraduate", "PhD"], default: "Undergraduate" },
+  university: { type: String }, // Current institution
+  graduationYear: { type: Number }, // Expected graduation year
+  state: { type: String }, // State of residence
+  country: { type: String, default: "India" }, // Country of residence
+  nationality: { type: String, default: "Indian" }, // Nationality
+  category: { type: String, enum: ["General", "OBC", "SC", "ST", "EWS", "Other"] },
+  disability: { type: Boolean, default: false },
+  firstGeneration: { type: Boolean, default: false }, // First generation learner
+  gender: { type: String, enum: ["Male", "Female", "Other", "Prefer not to say"] },
+  dateOfBirth: { type: Date }, // For age calculation
+
+  // Document storage
+  documents: [{
+    type: { type: String, enum: ["Income Certificate", "Resume", "Mark Sheet", "ID Proof", "Category Certificate", "Disability Certificate", "Other"] },
+    fileName: { type: String },
+    fileUrl: { type: String }, // Cloud storage URL
+    uploadedAt: { type: Date, default: Date.now }
+  }]
+}, { timestamps: true });
+
+export default mongoose.models.User || mongoose.model("User", UserSchema);
+</file>
+
+<file path="actions/ai.ts">
+"use server";
+
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { auth } from "@clerk/nextjs/server";
+import User from "@/models/User";
+import Scholarship from "@/models/Scholarship";
+import { connectToDatabase } from "@/lib/db";
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+// 1️⃣ Eligibility Explanation
+export async function generateEligibilityExplanation(scholarshipId: string) {
+    await connectToDatabase();
+  
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
+  
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      throw new Error("User profile not found. Please complete onboarding.");
+    }
+  
+    const scholarship = await Scholarship.findById(scholarshipId);
+    if (!scholarship) {
+      throw new Error("Scholarship not found.");
+    }
+  
+    // 🔥 STEP 1: Deterministic Eligibility Logic
+    const hasCGPARequirement = typeof scholarship.minCGPA === "number";
+    const hasIncomeRequirement = typeof scholarship.maxIncome === "number";
+
+    const isCGPAEligible = hasCGPARequirement
+    ? user.cgpa >= scholarship.minCGPA
+    : true;
+
+    const isIncomeEligible = hasIncomeRequirement
+    ? user.income <= scholarship.maxIncome
+    : true;
+
+    const isEligible = isCGPAEligible && isIncomeEligible;
+  
+    const cgpaGap = hasCGPARequirement
+    ? scholarship.minCGPA - user.cgpa
+    : 0;
+
+    const incomeGap = hasIncomeRequirement
+    ? user.income - scholarship.maxIncome
+    : 0;
+
+  
+    const verdict = isEligible ? "Eligible" : "Not Eligible";
+  
+    // 🔥 STEP 2: AI Only For Explanation
+    const prompt = `
+        You are an academic scholarship eligibility evaluation assistant.
+
+        The final eligibility verdict has already been determined by the system.
+
+        Final Verdict: ${verdict}
+
+        Student Profile:
+        - CGPA: ${user.cgpa}
+        - Family Income: ${user.income}
+
+        Scholarship Criteria:
+        - Minimum CGPA Required: ${scholarship.minCGPA ?? "Not Specified"}
+        - Maximum Income Allowed: ${scholarship.maxIncome ?? "Not Specified"}
+
+        Comparison Results:
+        - CGPA Evaluation: ${
+          isCGPAEligible
+            ? "Requirement Met"
+            : `Below Requirement by ${Math.abs(cgpaGap).toFixed(2)}`
+        }
+        - Income Evaluation: ${
+          isIncomeEligible
+            ? "Within Allowed Limit"
+            : `Exceeds Limit by ${Math.abs(incomeGap)}`
+        }
+
+        Instructions:
+        - Clearly state whether the student is Eligible or Not Eligible.
+        - If Not Eligible, explain which requirement failed.
+        - If Eligible, briefly explain how both requirements are satisfied.
+        - Do NOT introduce new criteria.
+        - Do NOT hallucinate missing rules.
+        - Keep the explanation professional and concise (5-6 sentences).
+    `;
+  
+    const result = await model.generateContent(prompt);
+    const explanation = result.response.text();
+  
+    // 🔥 Optional: Add confidence score
+    const confidence = hasCGPARequirement && hasIncomeRequirement
+    ? 100
+    : 60;
+
+    return {
+        verdict,
+        confidence,
+        cgpaStatus: isCGPAEligible,
+        incomeStatus: isIncomeEligible,
+        explanation
+      };
+  }
+
+
+// 2️⃣ SOP Generator
+export async function generateSOP(scholarshipId: string) {
+  await connectToDatabase();
+
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
+  const user = await User.findOne({ clerkId: userId });
+  const scholarship = await Scholarship.findById(scholarshipId);
+
+  const prompt = `
+  Write a professional 300-word Statement of Purpose.
+
+  Student:
+  CGPA: ${user.cgpa}
+  Family Income: ${user.income}
+
+  Applying for: ${scholarship.title}
+  Description: ${scholarship.description}
+
+  Focus on academic merit and financial need.
+  `;
+
+  const result = await model.generateContent(prompt);
+  return result.response.text();
+}
+</file>
+
+<file path="ai_pipeline/gemini_client.py">
+"""
+MegaLLM client — drop-in replacement for the old Gemini client.
+
+MegaLLM exposes an OpenAI-compatible API at https://ai.megallm.io/v1,
+so we use the standard `openai` SDK with a custom base_url.
+
+Import unchanged in the rest of the pipeline:
+    from gemini_client import call_gemini, call_gemini_with_json_schema
+"""
+
+from openai import OpenAI
+from config import MEGALLM_API_KEY, MEGALLM_MODEL
+import json
+import re
+
+# ── Client setup ────────────────────────────────────────────────────────────
+client = OpenAI(
+    base_url="https://ai.megallm.io/v1",
+    api_key=MEGALLM_API_KEY,
+)
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+def _clean_json_response(text: str) -> str:
+    """
+    Strip markdown code fences and surrounding whitespace from model output.
+    Handles:
+      - ```json\\n[...]\\n```
+      - ```\\n[...]\\n```
+      - Leading/trailing whitespace and newlines
+    """
+    text = text.strip()
+    # Remove opening fence (```json or ```)
+    text = re.sub(r"^```(?:json)?\s*\n?", "", text, flags=re.IGNORECASE)
+    # Remove closing fence
+    text = re.sub(r"\n?```\s*$", "", text)
+    return text.strip()
+
+
+def _extract_json_block(text: str) -> str:
+    """
+    Try to extract the first valid JSON array or object from the text,
+    even if there is surrounding prose.
+    """
+    text = _clean_json_response(text)
+
+    # Fast path: if it already parses, return as-is
+    try:
+        json.loads(text)
+        return text
+    except json.JSONDecodeError:
+        pass
+
+    # Try to find a JSON array first (our expected format)
+    match = re.search(r"(\[.*\])", text, re.DOTALL)
+    if match:
+        candidate = match.group(1)
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            pass
+
+    # Try to find a JSON object
+    match = re.search(r"(\{.*\})", text, re.DOTALL)
+    if match:
+        candidate = match.group(1)
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            pass
+
+    # Give up and return cleaned text (caller will handle JSONDecodeError)
+    return text
+
+
+# ── Public API (same signatures as the old Gemini client) ───────────────────
+def call_gemini(prompt: str, use_json_mode: bool = True) -> str:
+    """
+    Call MegaLLM with optional JSON mode for structured responses.
+
+    Args:
+        prompt (str): The prompt to send.
+        use_json_mode (bool): Whether to request JSON-only output.
+
+    Returns:
+        str: Cleaned response text (valid JSON string when use_json_mode=True).
+    """
+    full_prompt = prompt
+    if use_json_mode:
+        full_prompt = (
+            prompt
+            + "\n\nCRITICAL: Respond with RAW JSON only — no markdown fences, "
+            "no ```json blocks, no explanation. Start your response directly "
+            "with [ or { and end with ] or }."
+        )
+
+    kwargs = {
+        "model": MEGALLM_MODEL,
+        "messages": [{"role": "user", "content": full_prompt}],
+        "temperature": 0.1,
+        "top_p": 0.8,
+        "max_tokens": 8192,
+    }
+
+    try:
+        response = client.chat.completions.create(**kwargs)
+        text = response.choices[0].message.content
+
+        if not text or not text.strip():
+            raise Exception("Empty response from MegaLLM")
+
+        if use_json_mode:
+            return _extract_json_block(text)
+
+        return text.strip()
+
+    except Exception as e:
+        raise Exception(f"MegaLLM API Error: {str(e)}")
+
+
+def call_gemini_with_json_schema(prompt: str, json_schema: dict) -> dict:
+    """
+    Call MegaLLM with a schema hint injected into the prompt.
+
+    Args:
+        prompt (str): The prompt to send.
+        json_schema (dict): JSON schema describing the expected response.
+
+    Returns:
+        dict: Parsed JSON response.
+    """
+    schema_hint = json.dumps(json_schema, indent=2)
+    augmented_prompt = (
+        f"{prompt}\n\n"
+        f"Respond ONLY with valid JSON matching this schema:\n{schema_hint}"
+    )
+
+    try:
+        raw = call_gemini(augmented_prompt, use_json_mode=True)
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise Exception(f"Invalid JSON response from MegaLLM: {str(e)}")
+    except Exception as e:
+        raise Exception(f"MegaLLM API Error: {str(e)}")
+</file>
+
+<file path="app/onboarding/page.tsx">
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { saveUserProfile } from "@/actions/user";
+import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react";
+
+export default function OnboardingPage() 
+{
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<{ [key: string]: File | null }>({});
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, docType: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadedFiles(prev => ({ ...prev, [docType]: file }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const formData = new FormData(e.currentTarget);
+    
+    // Add uploaded files to formData
+    Object.entries(uploadedFiles).forEach(([docType, file]) => {
+      if (file) {
+        formData.append(`document_${docType}`, file);
+      }
+    });
+
+    try {
+      await saveUserProfile(formData);
+      router.push("/");
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      alert("Failed to save profile. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
+          <p className="text-lg text-gray-600">
+            Help us find the best scholarships tailored just for you
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Basic Information Section */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h2 className="text-xl font-semibold mb-6 text-blue-900">Basic Information</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium mb-2">Full Name <span className="text-red-500">*</span></label>
+                <input
+                  name="name"
+                  type="text"
+                  placeholder="Your full name"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Date of Birth <span className="text-red-500">*</span></label>
+                <input
+                  name="dateOfBirth"
+                  type="date"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Gender <span className="text-red-500">*</span></label>
+                <select
+                  name="gender"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Nationality <span className="text-red-500">*</span></label>
+                <input
+                  name="nationality"
+                  type="text"
+                  placeholder="e.g., Indian"
+                  defaultValue="Indian"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Education Section */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h2 className="text-xl font-semibold mb-6 text-blue-900">Education Details</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium mb-2">Education Level <span className="text-red-500">*</span></label>
+                <select
+                  name="educationLevel"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select Level</option>
+                  <option value="High School">High School</option>
+                  <option value="Undergraduate">Undergraduate</option>
+                  <option value="Postgraduate">Postgraduate</option>
+                  <option value="PhD">PhD</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Course / Major <span className="text-red-500">*</span></label>
+                <input
+                  name="course"
+                  type="text"
+                  placeholder="e.g., B.Tech CSE"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">University/Institution <span className="text-red-500">*</span></label>
+                <input
+                  name="university"
+                  type="text"
+                  placeholder="e.g., IIT Delhi"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Expected Graduation Year <span className="text-red-500">*</span></label>
+                <input
+                  name="graduationYear"
+                  type="number"
+                  min="2024"
+                  max="2030"
+                  placeholder="e.g., 2025"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Current CGPA <span className="text-red-500">*</span></label>
+                <input
+                  name="cgpa"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="10"
+                  placeholder="e.g., 7.5"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">Scale: 0-10</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Location Section */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h2 className="text-xl font-semibold mb-6 text-blue-900">Location Details</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium mb-2">Country <span className="text-red-500">*</span></label>
+                <input
+                  name="country"
+                  type="text"
+                  placeholder="e.g., India"
+                  defaultValue="India"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">State/Province <span className="text-red-500">*</span></label>
+                <input
+                  name="state"
+                  type="text"
+                  placeholder="e.g., Maharashtra"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Financial & Category Section */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h2 className="text-xl font-semibold mb-6 text-blue-900">Financial & Category Details</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium mb-2">Annual Family Income (₹) <span className="text-red-500">*</span></label>
+                <input
+                  name="income"
+                  type="number"
+                  placeholder="e.g., 400000"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Category <span className="text-red-500">*</span></label>
+                <select
+                  name="category"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select Category</option>
+                  <option value="General">General</option>
+                  <option value="OBC">OBC</option>
+                  <option value="SC">SC</option>
+                  <option value="ST">ST</option>
+                  <option value="EWS">EWS</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  name="disability"
+                  type="checkbox"
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium">I have a disability (PwD)</span>
+              </label>
+
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  name="firstGeneration"
+                  type="checkbox"
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium">First generation learner</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Document Upload Section */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h2 className="text-xl font-semibold mb-6 text-blue-900">Document Upload</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Upload important documents that may be required for scholarship applications. 
+              Supported formats: PDF, JPG, PNG (Max 5MB per file)
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[
+                { type: "income", label: "Income Certificate", required: true },
+                { type: "resume", label: "Resume/CV", required: true },
+                { type: "marksheet", label: "Latest Mark Sheet", required: true },
+                { type: "idproof", label: "ID Proof", required: true },
+                { type: "category", label: "Category Certificate", required: false },
+                { type: "disability", label: "Disability Certificate", required: false },
+              ].map((doc) => (
+                <div key={doc.type} className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <FileText className="w-5 h-5 text-gray-400" />
+                      <span className="text-sm font-medium">{doc.label}</span>
+                      {doc.required && <span className="text-red-500">*</span>}
+                    </label>
+                    {uploadedFiles[doc.type] && (
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                    )}
+                  </div>
+                  
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => handleFileUpload(e, doc.type)}
+                    className="hidden"
+                    id={`file-${doc.type}`}
+                  />
+                  
+                  <label
+                    htmlFor={`file-${doc.type}`}
+                    className="flex items-center justify-center w-full p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <Upload className="w-4 h-4 mr-2 text-gray-400" />
+                    <span className="text-sm text-gray-600">
+                      {uploadedFiles[doc.type] ? uploadedFiles[doc.type]?.name : `Choose ${doc.label}`}
+                    </span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <div className="flex justify-center">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg"
+            >
+              {isSubmitting ? "Processing..." : "Complete Profile & Find Scholarships"}
+            </button>
+          </div>
+          
+          <div className="text-center mt-4">
+            <p className="text-sm text-gray-500">
+              Your profile information and uploaded documents will be automatically saved.
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="README.md">
+🎓 scholarLogic
+Next-Generation Scholarship Matching Platform
+
+ScholarLogic is a full-stack platform designed to bridge the gap between complex scholarship PDFs and students. Built with a focus on automation and user-centric design.
+
+🛠️ Project Stack
+Framework: Next.js 15+ (App Router)
+
+Authentication: Clerk
+
+Database: MongoDB Atlas via Mongoose
+
+UI Components: ShadCN + Tailwind CSS
+
+🏗️ Architecture & Folder Structure
+To ensure code quality and consistency, all contributors must follow this structure:
+
+/models: Mongoose schemas (The "Data Contract").
+
+/actions: Server Actions for database mutations (No manual API routes).
+
+/lib: Shared utility logic and DB connection.
+
+/components: Reusable UI elements.
+
+/app: Routing and page logic.
+
+📋 Teammate Instructions
+Member 2: Frontend & Student Features
+
+Focus: User profiles and the matching engine.
+
+Student Profile: Create a page where users can save their CGPA and Income.
+
+Matching Logic: Filter the scholarships on the homepage by comparing user data (from Clerk/DB) with scholarship requirements.
+
+UI/UX: Enhance the dashboard with loading skeletons and success notifications.
+
+Member 3: AI Bridge & Python Automation
+
+Focus: PDF data extraction and database injection.
+
+Extraction Script: Write a Python script to parse scholarship PDFs into JSON.
+
+Database Push: Use PyMongo to push data directly to the scholarships collection in the scholarLogic database.
+
+Schema Alignment: Ensure extracted data matches our schema: title, provider, amount, deadline, and applyLink.
+
+🔐 Environment Setup
+Create a .env.local file with the following keys. Never commit this file to GitHub.
+
+Plaintext
+MONGODB_URI=your_mongodb_connection_string
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_key
+CLERK_SECRET_KEY=your_key
+🚀 Getting Started
+npm install
+
+npm run dev
+
+Access the admin portal at /admin to test manual data entry.
+
+
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="ai_pipeline/config.py">
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load variables from the single root .env.local (one level above ai_pipeline/)
+dotenv_path = Path(__file__).resolve().parent.parent / ".env.local"
+load_dotenv(dotenv_path=dotenv_path)
+
+MONGO_URI = os.getenv("MONGODB_URI")
+MEGALLM_API_KEY = os.getenv("MEGALLM_API_KEY")
+MEGALLM_MODEL = os.getenv("MEGALLM_MODEL", "deepseek-ai/deepseek-v3.1")  # default model
+
+if not MONGO_URI:
+    raise ValueError("Missing MONGODB_URI environment variable")
+if not MEGALLM_API_KEY:
+    raise ValueError("Missing MEGALLM_API_KEY environment variable")
+</file>
+
+<file path="ai_pipeline/requirements.txt">
+pymongo
+python-dotenv
+requests
+pymupdf
+pytesseract
+pillow
+openai
+</file>
+
+<file path="ai_pipeline/validator.py">
+def validate_data(data):
+    # Title and provider are required
+    if not data.get("title") or not data.get("title").strip():
+        raise ValueError("Missing title")
+    
+    if not data.get("provider") or not data.get("provider").strip():
+        raise ValueError("Missing provider")
+    
+    # Convert numeric fields properly
+    data["amount"] = convert_to_numeric(data.get("amount"))
+    data["minCGPA"] = convert_to_numeric(data.get("minCGPA"))
+    data["maxIncome"] = convert_to_numeric(data.get("maxIncome"))
+    
+    # Validate CGPA range
+    if data["minCGPA"] is not None and (data["minCGPA"] < 0 or data["minCGPA"] > 10):
+        data["minCGPA"] = None
+    
+    # Validate amountType
+    valid_amount_types = ["CASH", "WAIVER"]
+    if data.get("amountType") not in valid_amount_types:
+        data["amountType"] = None
+    
+    # Validate deadline format (basic check)
+    if data.get("deadline"):
+        if not is_valid_date_format(data["deadline"]):
+            data["deadline"] = None
+    
+    # Validate URL
+    if data.get("applyLink"):
+        if not data["applyLink"].startswith(("http://", "https://")):
+            data["applyLink"] = None
+    
+    # Clean up string fields
+    string_fields = ["title", "provider", "courseRestriction", "categoryRestriction", 
+                     "yearRestriction", "description"]
+    for field in string_fields:
+        if data.get(field):
+            data[field] = data[field].strip()
+    
+    return data
+
+def convert_to_numeric(value):
+    if value is None or value == "":
+        return None
+    
+    try:
+        # Handle string inputs
+        if isinstance(value, str):
+            # Remove currency symbols, commas, and whitespace
+            cleaned = value.replace("₹", "").replace("$", "").replace(",", "").strip()
+            if cleaned == "":
+                return None
+            return float(cleaned)
+        return float(value)
+    except (ValueError, TypeError):
+        return None
+
+def is_valid_date_format(date_str):
+    if not date_str or not isinstance(date_str, str):
+        return False
+    # Basic YYYY-MM-DD format check
+    import re
+    return bool(re.match(r'^\d{4}-\d{2}-\d{2}$', date_str))
+
+def normalize_cgpa(value):
+    if value is None:
+        return None
+
+    try:
+        value = float(value)
+
+        if value > 10:
+            value = value / 10
+
+        if value > 10:
+            return None
+
+        return round(value, 2)
+
+    except:
+        return None
+</file>
+
+<file path="app/scholarship/[id]/page.tsx">
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  IndianRupee,
+  CheckCircle,
+} from "lucide-react";
+import Link from "next/link";
+import { connectToDatabase } from "@/lib/db";
+import Scholarship from "@/models/Scholarship";
+import AISection from "@/components/AISection";
+
+export default async function ScholarshipDetail({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  // ✅ Next.js 15 async params
+  const { id } = await params;
+
+  // ✅ Connect DB
+  await connectToDatabase();
+
+  // ✅ Fetch scholarship
+  const scholarship = await Scholarship.findById(id).lean();
+
+  if (!scholarship) {
+    return (
+      <div className="p-10 text-center">
+        <h1 className="text-2xl font-bold">Scholarship Not Found</h1>
+        <p className="text-slate-500 mb-4">
+          The ID {id} does not exist in the database.
+        </p>
+        <Link href="/" className="text-blue-600 hover:underline">
+          Return Home
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-6 flex justify-center">
+      <div className="max-w-3xl w-full bg-white rounded-xl shadow-sm border p-8">
+        
+        {/* 🔙 Back Button */}
+        <Link
+          href="/"
+          className="flex items-center text-slate-500 hover:text-slate-800 mb-6"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Scholarships
+        </Link>
+
+        {/* 🏷 Header */}
+        <div className="mb-6">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-blue-600 font-semibold mb-1">
+                {(scholarship as any).provider}
+              </p>
+              <h1 className="text-3xl font-bold text-slate-900">
+                {(scholarship as any).title}
+              </h1>
+            </div>
+
+            <Badge className="text-md px-3 py-1">
+              {(scholarship as any).tags?.[0] || "New Opportunity"}
+            </Badge>
+          </div>
+        </div>
+
+        {/* 💰 Info Grid */}
+        <div className="grid grid-cols-3 gap-4 mb-8 bg-slate-50 p-4 rounded-lg border">
+          <div className="flex flex-col items-center p-2">
+            <IndianRupee className="w-6 h-6 text-green-600 mb-2" />
+            <span className="font-bold text-lg">
+              ₹{(scholarship as any).amount?.toLocaleString("en-IN")}
+            </span>
+            <span className="text-xs text-slate-500 uppercase tracking-wide">
+              Award Amount
+            </span>
+          </div>
+
+          <div className="flex flex-col items-center p-2 border-l border-slate-200">
+            <MapPin className="w-6 h-6 text-blue-500 mb-2" />
+            <span className="font-bold text-lg">
+              {(scholarship as any).location || "India"}
+            </span>
+            <span className="text-xs text-slate-500 uppercase tracking-wide">
+              Location
+            </span>
+          </div>
+
+          <div className="flex flex-col items-center p-2 border-l border-slate-200">
+            <Calendar className="w-6 h-6 text-orange-500 mb-2" />
+            <span className="font-bold text-lg">
+              {new Date((scholarship as any).deadline).toLocaleDateString()}
+            </span>
+            <span className="text-xs text-slate-500 uppercase tracking-wide">
+              Deadline
+            </span>
+          </div>
+        </div>
+
+        {/* 📄 Description */}
+        <div className="space-y-6">
+          <section>
+            <h3 className="text-xl font-semibold mb-3">
+              About the Scholarship
+            </h3>
+            <p className="text-slate-600 leading-relaxed">
+              {(scholarship as any).description}
+            </p>
+          </section>
+
+          {(scholarship as any).eligibility && (
+            <section>
+              <h3 className="text-xl font-semibold mb-3">
+                Eligibility Criteria
+              </h3>
+              <ul className="space-y-2">
+                {(scholarship as any).eligibility.map(
+                  (item: string, i: number) => (
+                    <li key={i} className="flex items-start">
+                      <CheckCircle className="w-5 h-5 text-green-500 mr-3 shrink-0" />
+                      <span className="text-slate-700">{item}</span>
+                    </li>
+                  )
+                )}
+              </ul>
+            </section>
+          )}
+        </div>
+
+        {/* 🔗 Apply Button */}
+        <div className="mt-10 pt-6 border-t flex justify-end">
+          <a
+            href={(scholarship as any).applyLink}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button
+              size="lg"
+              className="w-full md:w-auto bg-blue-600 hover:bg-blue-700"
+            >
+              Apply on Official Site
+            </Button>
+          </a>
+        </div>
+
+        {/* 🤖 AI Assistant */}
+        <AISection scholarshipId={(scholarship as any)._id.toString()} />
+
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="models/Scholarship.ts">
+import mongoose , { Schema , Document , Model} from "mongoose";
+
+// this is just an interface we have made 
+export interface IScholarship extends Document{
+
+    // student details 
+    title: string;
+    provider: string;
+    amount?: number;
+    amountType?: "CASH" | "WAIVER";
+    deadline: Date;
+    location: string;
+
+    // ye AI leke ayega M3 da kaam ae eh
+    educationLevel: string;
+    maxIncome?: number;
+    minCGPA?: number;
+    
+    // New restriction fields
+    courseRestriction?: string;
+    categoryRestriction?: string;
+    yearRestriction?: string;
+
+    // metadata
+    applyLink?: string;
+    description?: string;
+    tags: string[];
+    sourcePdf?: string; // New field to store the source PDF filename
+    createdAt: Date;
+}
+
+
+// 2. Mongoose Schema
+// This will tell MongoDB how to store the data
+const ScholarshipSchema = new Schema<IScholarship>(
+  {
+    title: { type: String, required: true },
+    provider: { type: String, required: true },
+    amount: { type: Number },
+    amountType: { type: String, enum: ["CASH", "WAIVER"] },
+    deadline: { type: Date },
+    location: { type: String, default: "Pan-India" },
+    educationLevel: { type: String, default: "Any" },
+    maxIncome: { type: Number },
+    minCGPA: { type: Number },
+    courseRestriction: { type: String },
+    categoryRestriction: { type: String },
+    yearRestriction: { type: String },
+    applyLink: { type: String },
+    description: { type: String },
+    tags: { type: [String], default: [] },
+    sourcePdf: { type: String }, // New field to store the source PDF filename
+  },
+  { timestamps: true } // Automatically adds createdAt and updatedAt
+);
+
+// 3. The Model Export (Singleton Pattern)
+// This prevents "OverwriteModelError" in Next.js
+const Scholarship: Model<IScholarship> =
+  mongoose.models.Scholarship || mongoose.model<IScholarship>("Scholarship", ScholarshipSchema);
+
+export default Scholarship;
+</file>
+
+<file path="ai_pipeline/db.py">
+import re
+import logging
+from pymongo import MongoClient, UpdateOne
+from pymongo.errors import DuplicateKeyError
+from config import MONGO_URI
+
+client = MongoClient(MONGO_URI)
+db = client["Data"]
+collection = db["scholarships"]
+processed_collection = db["processed_pdfs"]  # tracks which PDFs have been ingested
+
+logger = logging.getLogger(__name__)
+
+
+# ── Title normalization ──────────────────────────────────────────────────────
+def _normalize(text: str) -> str:
+    """
+    Canonical form for deduplication:
+    lowercase, collapse whitespace, strip punctuation used as separators.
+    'Merit-cum-Means Scholarship _Normal' → 'merit cum means scholarship normal'
+    """
+    if not text:
+        return ""
+    text = text.lower()
+    text = re.sub(r"[_\-–—/\\|,.()\[\]{}]", " ", text)  # separators → space
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+# ── PDF-level idempotency ────────────────────────────────────────────────────
+def is_pdf_already_processed(filename: str) -> bool:
+    return processed_collection.find_one({"filename": filename}) is not None
+
+
+def mark_pdf_as_processed(filename: str, inserted_count: int) -> None:
+    processed_collection.update_one(
+        {"filename": filename},
+        {"$set": {"filename": filename, "insertedCount": inserted_count}},
+        upsert=True,
+    )
+
+
+# ── Core insert ──────────────────────────────────────────────────────────────
+def insert_if_not_exists(data: dict, pdf_filename: str = None) -> bool:
+    """
+    Insert a scholarship if no near-duplicate exists.
+    Deduplication uses normalized title + normalized provider (case/punct insensitive).
+    Returns True if inserted, False if skipped.
+    """
+    raw_title = (data.get("title") or "").strip()
+    raw_provider = (data.get("provider") or "").strip()
+
+    if not raw_title or not raw_provider:
+        logger.warning("Skipped: missing title or provider")
+        print("⚠  Skipped: missing title or provider")
+        return False
+
+    norm_title = _normalize(raw_title)
+    norm_provider = _normalize(raw_provider)
+
+    # Check for existing doc using normalized keys stored on each document
+    existing = collection.find_one({
+        "normTitle": norm_title,
+        "normProvider": norm_provider,
+    })
+
+    if existing:
+        # Opportunistically backfill sourcePdf if missing
+        if pdf_filename and not existing.get("sourcePdf"):
+            collection.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"sourcePdf": pdf_filename}}
+            )
+            print(f"🔗 Linked PDF to existing: '{raw_title}'")
+        else:
+            print(f"⚠  Duplicate skipped: '{raw_title}'")
+        return False
+
+    document = {
+        # ── Searchable / display fields ──
+        "title":               raw_title,
+        "provider":            raw_provider,
+        # ── Normalized keys for dedup ──
+        "normTitle":           norm_title,
+        "normProvider":        norm_provider,
+        # ── Scholarship data ──
+        "amount":              data.get("amount"),
+        "amountType":          data.get("amountType"),
+        "deadline":            data.get("deadline"),
+        "minCGPA":             data.get("minCGPA"),
+        "maxIncome":           data.get("maxIncome"),
+        "courseRestriction":   data.get("courseRestriction"),
+        "categoryRestriction": data.get("categoryRestriction"),
+        "yearRestriction":     data.get("yearRestriction"),
+        "applyLink":           data.get("applyLink"),
+        "description":         data.get("description"),
+        "location":            "Pan-India",
+        "tags":                [],
+        "sourcePdf":           pdf_filename,
+    }
+
+    try:
+        collection.insert_one(document)
+        logger.info(f"Inserted scholarship: {raw_title}")
+        print(f"✅ Inserted: '{raw_title}' by {raw_provider}")
+        return True
+    except DuplicateKeyError:
+        print(f"⚠  Race-condition duplicate skipped: '{raw_title}'")
+        return False
+
+
+# ── One-time migration: backfill normTitle/normProvider on existing docs ─────
+def backfill_norm_fields() -> int:
+    """
+    Run once to add normTitle/normProvider to documents that predate this schema.
+    Safe to re-run (idempotent).
+    """
+    updated = 0
+    for doc in collection.find({"normTitle": {"$exists": False}}):
+        collection.update_one(
+            {"_id": doc["_id"]},
+            {"$set": {
+                "normTitle":    _normalize(doc.get("title", "")),
+                "normProvider": _normalize(doc.get("provider", "")),
+            }}
+        )
+        updated += 1
+    if updated:
+        print(f"🔧 Backfilled normTitle/normProvider on {updated} documents")
+    return updated
+
+
+# ── Duplicate cleanup: remove exact-title dupes created before this fix ──────
+def deduplicate_existing() -> int:
+    """
+    Find all (normTitle, normProvider) groups with >1 document.
+    Keep the most complete one (has sourcePdf and/or description), delete the rest.
+    Returns number of documents removed.
+    """
+    pipeline = [
+        {"$group": {
+            "_id": {"normTitle": "$normTitle", "normProvider": "$normProvider"},
+            "ids": {"$push": "$_id"},
+            "count": {"$sum": 1}
+        }},
+        {"$match": {"count": {"$gt": 1}}}
+    ]
+
+    removed = 0
+    for group in collection.aggregate(pipeline):
+        ids = group["ids"]
+        # Keep the first id, delete the rest
+        to_delete = ids[1:]
+        collection.delete_many({"_id": {"$in": to_delete}})
+        removed += len(to_delete)
+        print(f"🗑  Removed {len(to_delete)} duplicate(s) of '{group['_id']['normTitle']}'")
+
+    return removed
+</file>
+
+<file path="package.json">
+{
+  "name": "scholar-practice",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "kill": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue).OwningProcess -Force -ErrorAction SilentlyContinue; Remove-Item -Path '.next/dev/lock' -Force -ErrorAction SilentlyContinue; Write-Host 'Port 3000 cleared'\""
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^6.37.4",
+    "@google/generative-ai": "^0.24.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.34.3",
+    "lucide-react": "^0.564.0",
+    "mongoose": "^9.2.1",
+    "next": "16.1.6",
+    "openai": "^6.22.0",
+    "radix-ui": "^1.4.3",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "shadcn": "^3.8.4",
+    "tailwindcss": "^4",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+.venv
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+# clerk configuration (can include secrets)
+/.clerk/
+
+_pycache_/
+
+logs/
+__pycache__/
+</file>
+
+<file path="ai_pipeline/extract_and_insert.py">
+import os
+import sys
+import argparse
+import logging
+import json
+import re
+import io
+import fitz          # PyMuPDF
+import pytesseract
+from PIL import Image
+
+from megallm_client import call_megallm
+from validator import validate_data
+from db import (
+    insert_if_not_exists,
+    is_pdf_already_processed,
+    mark_pdf_as_processed,
+    backfill_norm_fields,
+    deduplicate_existing,
+)
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    filename="logs/pipeline.log",
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+# ── PDF Text Extraction ──────────────────────────────────────────────────────
+def extract_text_from_pdf(path: str) -> str:
+    """
+    Extract structured text from a PDF using PyMuPDF with per-page OCR fallback.
+    Returns text with page separators preserved for the LLM.
+    """
+    print(f"📄 Extracting: {os.path.basename(path)}")
+    doc = fitz.open(path)
+    structured_text = ""
+
+    for page_num in range(len(doc)):
+        page = doc[page_num]
+        raw_text = page.get_text()
+
+        if raw_text.strip():
+            blocks = page.get_text("dict")["blocks"]
+            page_text = ""
+            for block in blocks:
+                if "lines" in block:
+                    for line in block["lines"]:
+                        line_text = "".join(span["text"] for span in line["spans"])
+                        # Detect possible table row (many spans, small height)
+                        if len(line["spans"]) > 2 and abs(line["bbox"][1] - line["bbox"][3]) < 20:
+                            cells = [s["text"].strip() for s in line["spans"]]
+                            if any("|" in c or "\t" in c for c in cells):
+                                page_text += "| " + " | ".join(cells) + " |\n"
+                                continue
+                        page_text += line_text + "\n"
+            structured_text += f"\n--- Page {page_num + 1} ---\n{page_text}\n"
+        else:
+            print(f"  🔍 Page {page_num + 1}: OCR fallback")
+            pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
+            img = Image.open(io.BytesIO(pix.tobytes("png")))
+            ocr_text = pytesseract.image_to_string(img)
+            label = "(OCR)" if ocr_text.strip() else ""
+            content = ocr_text if ocr_text.strip() else "[No readable text]"
+            structured_text += f"\n--- Page {page_num + 1} {label} ---\n{content}\n"
+
+    doc.close()
+
+    char_count = len(structured_text.strip())
+    if char_count < 20:
+        raise ValueError(f"PDF contains insufficient readable content ({char_count} chars)")
+
+    print(f"  ✅ Extracted {char_count:,} characters")
+    return structured_text
+
+
+# ── LLM Extraction Prompt ────────────────────────────────────────────────────
+EXTRACTION_PROMPT = """\
+You are an exhaustive scholarship data extraction engine.
+
+MISSION: Extract EVERY SINGLE scholarship from this document — tables, lists, paragraphs. \
+If a table has 30 rows, produce 30 JSON objects. Never truncate. Never summarize.
+
+CRITICAL RULES:
+1. Output ONLY a raw JSON array — no markdown, no explanation, no preamble
+2. One JSON object per scholarship/scheme entry
+3. Never guess — use null for any field not explicitly stated
+4. amounts: numeric only (strip ₹, commas, "per annum")
+5. Convert % CGPA to 10-point scale (75% → 7.5)
+6. deadline: YYYY-MM-DD format only, or null
+7. applyLink: must start with http, or null
+8. description: 2-3 sentences max
+
+TABLE PARSING RULES:
+- NSP-style tables: each row = one scholarship object
+- "Scheme Name" column → title
+- "Department / Ministry" column → provider
+- Sub-schemes under a department = individual entries
+
+REQUIRED OUTPUT FORMAT (array of objects):
+[
+  {
+    "title": "Exact scheme name",
+    "provider": "Ministry or institution name",
+    "amount": 50000,
+    "amountType": "CASH",
+    "deadline": "2025-10-31",
+    "minCGPA": 6.0,
+    "maxIncome": 250000,
+    "courseRestriction": "BE/BTech",
+    "categoryRestriction": "SC/ST",
+    "yearRestriction": "1st year",
+    "applyLink": "https://scholarships.gov.in",
+    "description": "Brief 2-3 sentence summary."
+  }
+]
+
+START your response with [ and END with ]. No other text.
+
+DOCUMENT TEXT:
+"""
+
+
+# ── Core Processing ──────────────────────────────────────────────────────────
+def process_pdf(pdf_path: str, pdf_filename: str) -> int:
+    """
+    Extract text → call LLM → validate → insert.
+    Returns number of new scholarships inserted.
+    """
+    try:
+        text = extract_text_from_pdf(pdf_path)
+    except (ValueError, FileNotFoundError) as e:
+        logger.error(f"Extraction failed [{pdf_filename}]: {e}")
+        print(f"  ❌ Extraction failed: {e}")
+        return 0
+
+    prompt = EXTRACTION_PROMPT + text
+
+    try:
+        response = call_megallm(prompt, use_json_mode=True)
+    except Exception as e:
+        logger.error(f"LLM call failed [{pdf_filename}]: {e}")
+        print(f"  ❌ LLM error: {e}")
+        return 0
+
+    # ── Parse JSON ───────────────────────────────────────────────────────────
+    try:
+        parsed = json.loads(response)
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parse failed [{pdf_filename}]: {e}\nRaw: {response[:300]}")
+        print(f"  ❌ JSON parse error: {e}")
+        return 0
+
+    # Normalise: handle wrapped dict {"scholarships": [...]} or bare list
+    if isinstance(parsed, dict):
+        data_list = next(
+            (v for v in parsed.values() if isinstance(v, list)),
+            [parsed]  # single scholarship as dict
+        )
+    elif isinstance(parsed, list):
+        data_list = parsed
+    else:
+        logger.error(f"Unexpected JSON root type [{pdf_filename}]: {type(parsed)}")
+        print(f"  ❌ Unexpected JSON type: {type(parsed)}")
+        return 0
+
+    print(f"  📊 LLM found {len(data_list)} scholarship entries")
+
+    # ── Validate & Insert ─────────────────────────────────────────────────────
+    inserted = 0
+    for entry in data_list:
+        if not isinstance(entry, dict):
+            print(f"  ⚠  Skipped non-dict entry: {type(entry)}")
+            continue
+        try:
+            validated = validate_data(entry)
+            if insert_if_not_exists(validated, pdf_filename):
+                inserted += 1
+        except ValueError as ve:
+            print(f"  ⚠  Validation failed: {ve}")
+        except Exception as e:
+            logger.error(f"Insert error [{pdf_filename}]: {e}")
+            print(f"  ⚠  Insert error: {e}")
+
+    print(f"  💾 Inserted {inserted}/{len(data_list)} new scholarships")
+    return inserted
+
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+def main():
+    pdf_folder = "pdfs"
+
+    # ── One-time migrations (safe to run on every startup) ───────────────────
+    print("🔧 Running DB maintenance...")
+    backfill_norm_fields()
+    removed = deduplicate_existing()
+    if removed:
+        print(f"🗑  Cleaned {removed} duplicate documents from DB")
+    print()
+
+    # ── Process PDFs ─────────────────────────────────────────────────────────
+    pdf_files = sorted(f for f in os.listdir(pdf_folder) if f.lower().endswith(".pdf"))
+
+    if not pdf_files:
+        print("📁 No PDF files found in pdfs/ folder.")
+        return
+
+    print(f"📁 Found {len(pdf_files)} PDF(s) to check\n")
+    total_inserted = 0
+
+    for filename in pdf_files:
+        pdf_path = os.path.join(pdf_folder, filename)
+
+        # ── Skip already-processed PDFs ──────────────────────────────────────
+        if is_pdf_already_processed(filename):
+            print(f"⏭  Already processed: {filename}")
+            continue
+
+        print(f"{'='*60}")
+        print(f"📂 Processing: {filename}")
+
+        inserted = process_pdf(pdf_path, filename)
+        total_inserted += inserted
+
+        # Mark as done regardless of insert count (0 inserts = all duplicates)
+        mark_pdf_as_processed(filename, inserted)
+        print(f"✅ Done: {filename}\n")
+
+    print(f"{'='*60}")
+    print(f"🏁 Pipeline complete. Total new scholarships inserted: {total_inserted}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Scholarship PDF pipeline")
+    parser.add_argument("--file", type=str, help="Path to a single PDF to process (outputs JSON to stdout)")
+    args = parser.parse_args()
+
+    if args.file:
+        # ── Single-file mode: used by the Next.js API route ──────────────────
+        pdf_path = args.file
+        pdf_filename = os.path.basename(pdf_path)
+        errors: list[str] = []
+        inserted = 0
+        skipped = 0
+
+        try:
+            text = extract_text_from_pdf(pdf_path)
+            prompt = EXTRACTION_PROMPT + text
+
+            try:
+                response = call_megallm(prompt, use_json_mode=True)
+            except Exception as e:
+                raise RuntimeError(f"LLM call failed: {e}")
+
+            try:
+                parsed = json.loads(response)
+            except json.JSONDecodeError as e:
+                raise RuntimeError(f"JSON parse error: {e}")
+
+            if isinstance(parsed, dict):
+                data_list = next((v for v in parsed.values() if isinstance(v, list)), [parsed])
+            elif isinstance(parsed, list):
+                data_list = parsed
+            else:
+                raise RuntimeError(f"Unexpected JSON root type: {type(parsed)}")
+
+            for entry in data_list:
+                if not isinstance(entry, dict):
+                    skipped += 1
+                    errors.append(f"Non-dict entry skipped: {type(entry)}")
+                    continue
+                try:
+                    validated = validate_data(entry)
+                    if insert_if_not_exists(validated, pdf_filename):
+                        inserted += 1
+                    else:
+                        skipped += 1
+                except ValueError as ve:
+                    skipped += 1
+                    errors.append(str(ve))
+                except Exception as e:
+                    skipped += 1
+                    errors.append(str(e))
+
+            # Mark PDF as processed
+            mark_pdf_as_processed(pdf_filename, inserted)
+
+            result = {
+                "success": True,
+                "insertedCount": inserted,
+                "skippedCount": skipped,
+                "errors": errors,
+            }
+        except Exception as e:
+            result = {
+                "success": False,
+                "insertedCount": 0,
+                "skippedCount": 0,
+                "errors": [str(e)],
+            }
+
+        # Write ONLY the JSON to stdout — no other print() output should reach stdout
+        sys.stdout.write(json.dumps(result) + "\n")
+        sys.exit(0)
+    else:
+        main()
+</file>
+
+<file path="components/ScholarshipCard.tsx">
+"use client";
+
+import { useState, useEffect, useTransition } from "react";
+import { CheckCircle, XCircle } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar, MapPin, IndianRupee, Heart, FileText } from "lucide-react";
+import Link from "next/link";
+import { toggleSaveScholarship } from "@/actions/application";
+import { cn } from "@/lib/utils";
+
+interface ScholarshipCardProps {
+  id: string;
+  title: string;
+  provider: string;
+  amount?: number;
+  amountType?: "CASH" | "WAIVER";
+  location?: string;
+  deadline?: Date;
+  tags?: string[];
+  courseRestriction?: string;
+  categoryRestriction?: string;
+  yearRestriction?: string;
+  minCGPA?: number;
+  maxIncome?: number;
+  sourcePdf?: string;
+  isSavedInitial?: boolean;
+  isEligible?: boolean;
+}
+
+export function ScholarshipCard({
+  id,
+  title,
+  provider,
+  amount,
+  amountType,
+  location = "Pan-India",
+  deadline,
+  tags = [],
+  courseRestriction,
+  categoryRestriction,
+  yearRestriction,
+  minCGPA,
+  maxIncome,
+  sourcePdf,
+  isSavedInitial = false,
+  isEligible,
+}: ScholarshipCardProps) {
+  const [isSaved, setIsSaved] = useState(isSavedInitial);
+  const [isPending, startTransition] = useTransition();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const handleSave = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Optimistic update
+    const newSavedState = !isSaved;
+    setIsSaved(newSavedState);
+
+    startTransition(async () => {
+      const result = await toggleSaveScholarship(id);
+      if (!result.success) {
+        // Revert optimistic update using the captured value (fixes stale closure)
+        setIsSaved(!newSavedState);
+        if (result.error?.includes("signed in")) {
+          alert("Please sign in to save scholarships.");
+        } else {
+          alert(result.error || "Failed to save scholarship. Please try again.");
+        }
+      }
+    });
+  };
+
+  const formatAmount = () => {
+    if (amountType === "WAIVER") return "Tuition Waiver";
+    if (amount && amount > 0) return `₹${amount.toLocaleString("en-IN")}`;
+    return "Not specified";
+  };
+
+  const getDeadlineText = () => {
+    if (!deadline) return "No deadline";
+    if (!mounted) return "";
+    return new Date(deadline).toLocaleDateString();
+  };
+
+  const openPdf = () => {
+    if (sourcePdf) {
+      window.open(`/api/pdf/${sourcePdf}`, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  return (
+    <Card className={cn(
+      "w-full max-w-md transition-all border-l-4 flex flex-col justify-between relative overflow-hidden",
+      "hover:shadow-xl hover:-translate-y-0.5 duration-200",
+      isEligible === false
+        ? "border-l-slate-300 opacity-75"
+        : "border-l-blue-600"
+    )}>
+      <div>
+        {/* Eligibility pill — absolute, top-left corner */}
+        {isEligible !== undefined && (
+          <div
+            className={cn(
+              "absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold shadow-sm border",
+              isEligible
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-red-50 text-red-600 border-red-200"
+            )}
+          >
+            {isEligible
+              ? <CheckCircle className="w-3 h-3 flex-shrink-0" />
+              : <XCircle className="w-3 h-3 flex-shrink-0" />}
+            {isEligible ? "Eligible" : "Not Eligible"}
+          </div>
+        )}
+
+        <CardHeader className="pb-2">
+          {/* Heart/Save — absolute so it never displaces other elements */}
+          <button
+            onClick={handleSave}
+            disabled={isPending}
+            title={isSaved ? "Remove from saved" : "Save scholarship"}
+            className={cn(
+              "absolute top-3 right-3 p-2 rounded-full transition-all duration-200 group z-10",
+              isPending ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-100 active:scale-90"
+            )}
+          >
+            <Heart
+              className={cn(
+                "w-5 h-5 transition-all duration-200",
+                isSaved
+                  ? "fill-red-500 text-red-500 scale-110"
+                  : "text-slate-400 group-hover:text-red-400 group-hover:scale-110"
+              )}
+            />
+          </button>
+
+          {/* Provider + Title — padded on both sides: left for badge, right for heart */}
+          <div className={cn("pr-10", isEligible !== undefined ? "pl-1 pt-5" : "")}>
+            <p className="text-sm text-muted-foreground font-medium mb-1">
+              {provider}
+            </p>
+            <CardTitle className="text-xl font-bold">{title}</CardTitle>
+          </div>
+
+          {/* Badge — left-aligned below title, never floated right */}
+          <Badge
+            className="mt-2 self-start"
+            variant={
+              amountType === "WAIVER"
+                ? "secondary"
+                : amount && amount > 50000
+                  ? "default"
+                  : "outline"
+            }
+          >
+            {amountType === "WAIVER"
+              ? "Waiver"
+              : amount && amount > 50000
+                ? "High Value"
+                : "Standard"}
+          </Badge>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="flex items-center text-slate-700">
+            <IndianRupee className="w-5 h-5 mr-2 text-green-600" />
+            <span className="text-lg font-bold">{formatAmount()}</span>
+          </div>
+
+          <div className="flex gap-4 text-sm text-slate-500">
+            <div className="flex items-center">
+              <MapPin className="w-4 h-4 mr-1" />
+              {location}
+            </div>
+            <div className="flex items-center">
+              <Calendar className="w-4 h-4 mr-1" />
+              {getDeadlineText()}
+            </div>
+          </div>
+
+          {(courseRestriction ||
+            categoryRestriction ||
+            yearRestriction ||
+            minCGPA ||
+            maxIncome) && (
+              <div className="space-y-1 text-xs text-slate-600">
+                {courseRestriction && <div>• Course: {courseRestriction}</div>}
+                {categoryRestriction && (
+                  <div>• Category: {categoryRestriction}</div>
+                )}
+                {yearRestriction && <div>• Year: {yearRestriction}</div>}
+                {minCGPA && <div>• Min CGPA: {minCGPA}</div>}
+                {maxIncome && (
+                  <div>• Max Income: ₹{maxIncome.toLocaleString("en-IN")}</div>
+                )}
+              </div>
+            )}
+
+          <div className="flex flex-wrap gap-2 pt-2">
+            {tags.map((tag, i) => (
+              <span
+                key={i}
+                className="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-medium"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </CardContent>
+      </div>
+
+      <CardFooter className="flex gap-2 pt-2">
+        <Link href={`/scholarship/${id}`} className="flex-1">
+          <Button className="w-full bg-blue-600 hover:bg-blue-700">
+            View Details
+          </Button>
+        </Link>
+        {sourcePdf && (
+          <Button
+            onClick={openPdf}
+            variant="outline"
+            className="px-3"
+            title="View Source PDF"
+          >
+            <FileText className="w-4 h-4" />
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  );
+}
+</file>
+
+<file path="app/page.tsx">
+import Link from "next/link";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+
+export default function LandingPage() {
+  return (
+    <main className="min-h-screen bg-[#050810] text-white flex flex-col overflow-hidden">
+
+      {/* ── Background ambient glows ── */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full bg-blue-600/10 blur-[120px]" />
+        <div className="absolute bottom-[-80px] left-[10%] w-[500px] h-[400px] rounded-full bg-indigo-700/8 blur-[100px]" />
+        <div className="absolute top-[40%] right-[-100px] w-[400px] h-[400px] rounded-full bg-sky-500/8 blur-[80px]" />
+      </div>
+
+      {/* ── Navbar ── */}
+      <nav className="relative z-10 flex items-center justify-between px-8 md:px-16 py-5 border-b border-white/[0.06] backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-xs font-black shadow-lg shadow-blue-500/30">
+            S
+          </div>
+          <span className="text-lg font-bold tracking-tight">
+            scholar<span className="text-blue-400">Logic</span>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="text-sm text-slate-400 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/5">
+                Sign In
+              </button>
+            </SignInButton>
+            <SignInButton mode="modal">
+              <button className="text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg transition-all hover:shadow-lg hover:shadow-blue-500/25">
+                Get Started
+              </button>
+            </SignInButton>
+          </SignedOut>
+          <SignedIn>
+            <Link
+              href="/home"
+              className="text-sm text-slate-400 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/5"
+            >
+              Dashboard
+            </Link>
+            <UserButton />
+          </SignedIn>
+        </div>
+      </nav>
+
+      {/* ── Hero ── */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 py-24">
+
+        {/* Pill badge */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-300 text-xs font-medium mb-8 backdrop-blur-sm">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-400" />
+          </span>
+          AI-Powered · Personalised · Free to Use
+        </div>
+
+        {/* Headline */}
+        <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-[1.05] max-w-4xl mb-6">
+          Stop Searching.<br />
+          <span className="bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-400 bg-clip-text text-transparent">
+            Start Winning.
+          </span>
+        </h1>
+
+        {/* Subtitle */}
+        <p className="text-slate-400 text-lg md:text-xl max-w-2xl leading-relaxed mb-10">
+          ScholarLogic reads your academic profile and instantly surfaces every scholarship you actually qualify for —
+          no irrelevant results, no wasted hours.
+        </p>
+
+        {/* CTAs */}
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-20">
+          <Link
+            href="/home"
+            className="group relative inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3.5 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-blue-500/30 text-sm"
+          >
+            Explore Scholarships
+            <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+          </Link>
+          <Link
+            href="/home"
+            className="inline-flex items-center gap-2 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/8 text-slate-300 hover:text-white font-medium px-6 py-3.5 rounded-xl transition-all duration-200 text-sm backdrop-blur-sm"
+          >
+            See How It Works
+          </Link>
+        </div>
+
+        {/* Stats */}
+        <div className="flex flex-wrap items-center justify-center gap-12 md:gap-20">
+          {[
+            { value: "10,000+", label: "Scholarships Listed" },
+            { value: "₹50Cr+", label: "Funding Distributed" },
+            { value: "98%", label: "Match Accuracy" },
+          ].map((stat) => (
+            <div key={stat.label} className="text-center">
+              <div className="text-3xl md:text-4xl font-black bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
+                {stat.value}
+              </div>
+              <div className="text-xs text-slate-500 mt-1.5 tracking-wide uppercase">
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Feature strip ── */}
+      <div className="relative z-10 border-t border-white/[0.06] bg-white/[0.02] backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            {
+              icon: "🎯",
+              title: "Precision Matching",
+              desc: "We check your CGPA, income, course, and category against every scholarship — you see only what you can win.",
+            },
+            {
+              icon: "📄",
+              title: "PDF Intelligence",
+              desc: "Our AI reads scholarship PDFs and extracts eligibility criteria automatically — no manual data entry.",
+            },
+            {
+              icon: "⚡",
+              title: "Instant Results",
+              desc: "Complete your profile once and get a personalised, ranked list of scholarships in seconds.",
+            },
+          ].map((feature) => (
+            <div key={feature.title} className="flex flex-col gap-3">
+              <span className="text-2xl">{feature.icon}</span>
+              <h3 className="font-bold text-white text-sm">{feature.title}</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">{feature.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Footer ── */}
+      <footer className="relative z-10 text-center py-5 border-t border-white/[0.05] text-xs text-slate-700">
+        © 2026 ScholarLogic · Built for students, powered by AI.
+      </footer>
+
+    </main>
+  );
+}
+</file>
+
+</files>
