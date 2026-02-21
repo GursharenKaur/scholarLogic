@@ -5,7 +5,7 @@ load_dotenv()
 
 MONGO_URI = os.getenv("MONGODB_URI")
 MEGALLM_API_KEY = os.getenv("MEGALLM_API_KEY")
-MEGALLM_MODEL = os.getenv("MEGALLM_MODEL", "gemini-2.5-flash")  # default model
+MEGALLM_MODEL = os.getenv("MEGALLM_MODEL", "deepseek-ai/deepseek-v3.1")  # default model
 
 if not MONGO_URI:
     raise ValueError("Missing MONGODB_URI environment variable")

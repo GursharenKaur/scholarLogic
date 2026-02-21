@@ -7,7 +7,7 @@ import fitz          # PyMuPDF
 import pytesseract
 from PIL import Image
 
-from gemini_client import call_gemini
+from megallm_client import call_megallm
 from validator import validate_data
 from db import (
     insert_if_not_exists,
@@ -137,7 +137,7 @@ def process_pdf(pdf_path: str, pdf_filename: str) -> int:
     prompt = EXTRACTION_PROMPT + text
 
     try:
-        response = call_gemini(prompt, use_json_mode=True)
+        response = call_megallm(prompt, use_json_mode=True)
     except Exception as e:
         logger.error(f"LLM call failed [{pdf_filename}]: {e}")
         print(f"  ❌ LLM error: {e}")

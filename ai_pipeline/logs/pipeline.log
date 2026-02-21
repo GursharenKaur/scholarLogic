@@ -480,3 +480,31 @@ INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.
 2026-02-21 02:36:00,038 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
 2026-02-21 02:36:08,777 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
 2026-02-21 02:36:09,833 INFO Inserted scholarship: HDFC Badhte Kadam Scholarship
+2026-02-21 11:32:08,055 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-21 11:32:08,251 INFO Inserted scholarship: Merit-cum-Means Scholarship_Normal
+2026-02-21 11:32:08,759 INFO Inserted scholarship: Merit-cum-Means Scholarship_Special
+2026-02-21 11:32:08,963 INFO Inserted scholarship: Merit-cum-Means Scholarship_Lateral entry
+2026-02-21 11:37:21,190 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 504 Gateway Timeout"
+2026-02-21 11:37:21,192 INFO Retrying request to /chat/completions in 0.443996 seconds
+2026-02-21 11:38:41,575 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-21 11:38:41,881 INFO Inserted scholarship: Post Matric Scholarships Scheme for Minorities
+2026-02-21 11:38:42,104 INFO Inserted scholarship: Scholarship For Top Class Education For Students With Disabilities
+2026-02-21 11:38:42,295 INFO Inserted scholarship: Post Matric Scholarship For Students With Disabilities
+2026-02-21 11:38:42,462 INFO Inserted scholarship: Central Sector Scheme Of Scholarships For College And University Students
+2026-02-21 11:38:42,702 INFO Inserted scholarship: National Fellowship And Scholarship For Higher Education Of St Students - Scholarship (Formally Top Class Education For Schedule Tribe Students)
+2026-02-21 11:38:42,903 INFO Inserted scholarship: National Means Cum Merit Scholarship
+2026-02-21 11:38:43,081 INFO Inserted scholarship: Prime Minister'S Scholarship Scheme For Central Armed Police Forces And Assam Rifles
+2026-02-21 11:38:43,273 INFO Inserted scholarship: Prime Minister'S Scholarship Scheme For Wards Of States/Uts Police Personnel Martyred During Terror/Naxal Attacks
+2026-02-21 11:38:43,622 INFO Inserted scholarship: Prime Minister'S Scholarship Scheme For Ministry Of Railways
+2026-02-21 11:38:43,927 INFO Inserted scholarship: National Scholarship For Post Graduate Studies
+2026-02-21 11:38:44,133 INFO Inserted scholarship: Ishan Uday Special Scholarship Scheme For Ner
+2026-02-21 11:38:44,338 INFO Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses(Nec Merit Scholarship)
+2026-02-21 11:38:44,657 INFO Inserted scholarship: Central Sector Scholarship Of Top Class Education For Se Students
+2026-02-21 11:38:45,055 INFO Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/Iome/Lsdm- Post Matric
+2026-02-21 11:38:45,644 INFO Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebce And Dnt Students
+2026-02-21 11:38:50,486 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-21 11:38:50,686 INFO Inserted scholarship: PRAGATI Scholarship Scheme
+2026-02-21 11:39:02,420 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-21 11:39:02,617 INFO Inserted scholarship: Reliance Foundation Undergraduate Scholarships
+2026-02-21 11:39:09,449 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-21 11:39:09,738 INFO Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23
