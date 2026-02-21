@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { CheckCircle, XCircle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -31,6 +32,7 @@ interface ScholarshipCardProps {
   maxIncome?: number;
   sourcePdf?: string;
   isSavedInitial?: boolean;
+  isEligible?: boolean;
 }
 
 export function ScholarshipCard({
@@ -49,6 +51,7 @@ export function ScholarshipCard({
   maxIncome,
   sourcePdf,
   isSavedInitial = false,
+  isEligible,
 }: ScholarshipCardProps) {
   const [isSaved, setIsSaved] = useState(isSavedInitial);
   const [isPending, startTransition] = useTransition();
@@ -99,8 +102,31 @@ export function ScholarshipCard({
   };
 
   return (
-    <Card className="w-full max-w-md hover:shadow-lg transition-all border-l-4 border-l-blue-600 flex flex-col justify-between relative">
+    <Card className={cn(
+      "w-full max-w-md transition-all border-l-4 flex flex-col justify-between relative overflow-hidden",
+      "hover:shadow-xl hover:-translate-y-0.5 duration-200",
+      isEligible === false
+        ? "border-l-slate-300 opacity-75"
+        : "border-l-blue-600"
+    )}>
       <div>
+        {/* Eligibility pill — absolute, top-left corner */}
+        {isEligible !== undefined && (
+          <div
+            className={cn(
+              "absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold shadow-sm border",
+              isEligible
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-red-50 text-red-600 border-red-200"
+            )}
+          >
+            {isEligible
+              ? <CheckCircle className="w-3 h-3 flex-shrink-0" />
+              : <XCircle className="w-3 h-3 flex-shrink-0" />}
+            {isEligible ? "Eligible" : "Not Eligible"}
+          </div>
+        )}
+
         <CardHeader className="pb-2">
           {/* Heart/Save — absolute so it never displaces other elements */}
           <button
@@ -122,8 +148,8 @@ export function ScholarshipCard({
             />
           </button>
 
-          {/* Provider + Title — padded right so it doesn't run under the heart */}
-          <div className="pr-10">
+          {/* Provider + Title — padded on both sides: left for badge, right for heart */}
+          <div className={cn("pr-10", isEligible !== undefined ? "pl-1 pt-5" : "")}>
             <p className="text-sm text-muted-foreground font-medium mb-1">
               {provider}
             </p>

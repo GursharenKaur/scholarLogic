@@ -6,13 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "kill": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue).OwningProcess -Force -ErrorAction SilentlyContinue; Remove-Item -Path '.next/dev/lock' -Force -ErrorAction SilentlyContinue; Write-Host 'Port 3000 cleared'\""
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.4",
     "@google/generative-ai": "^0.24.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.34.3",
     "lucide-react": "^0.564.0",
     "mongoose": "^9.2.1",
     "next": "16.1.6",

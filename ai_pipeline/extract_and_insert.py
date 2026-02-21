@@ -1,4 +1,6 @@
 import os
+import sys
+import argparse
 import logging
 import json
 import re
@@ -231,4 +233,76 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Scholarship PDF pipeline")
+    parser.add_argument("--file", type=str, help="Path to a single PDF to process (outputs JSON to stdout)")
+    args = parser.parse_args()
+
+    if args.file:
+        # ── Single-file mode: used by the Next.js API route ──────────────────
+        pdf_path = args.file
+        pdf_filename = os.path.basename(pdf_path)
+        errors: list[str] = []
+        inserted = 0
+        skipped = 0
+
+        try:
+            text = extract_text_from_pdf(pdf_path)
+            prompt = EXTRACTION_PROMPT + text
+
+            try:
+                response = call_megallm(prompt, use_json_mode=True)
+            except Exception as e:
+                raise RuntimeError(f"LLM call failed: {e}")
+
+            try:
+                parsed = json.loads(response)
+            except json.JSONDecodeError as e:
+                raise RuntimeError(f"JSON parse error: {e}")
+
+            if isinstance(parsed, dict):
+                data_list = next((v for v in parsed.values() if isinstance(v, list)), [parsed])
+            elif isinstance(parsed, list):
+                data_list = parsed
+            else:
+                raise RuntimeError(f"Unexpected JSON root type: {type(parsed)}")
+
+            for entry in data_list:
+                if not isinstance(entry, dict):
+                    skipped += 1
+                    errors.append(f"Non-dict entry skipped: {type(entry)}")
+                    continue
+                try:
+                    validated = validate_data(entry)
+                    if insert_if_not_exists(validated, pdf_filename):
+                        inserted += 1
+                    else:
+                        skipped += 1
+                except ValueError as ve:
+                    skipped += 1
+                    errors.append(str(ve))
+                except Exception as e:
+                    skipped += 1
+                    errors.append(str(e))
+
+            # Mark PDF as processed
+            mark_pdf_as_processed(pdf_filename, inserted)
+
+            result = {
+                "success": True,
+                "insertedCount": inserted,
+                "skippedCount": skipped,
+                "errors": errors,
+            }
+        except Exception as e:
+            result = {
+                "success": False,
+                "insertedCount": 0,
+                "skippedCount": 0,
+                "errors": [str(e)],
+            }
+
+        # Write ONLY the JSON to stdout — no other print() output should reach stdout
+        sys.stdout.write(json.dumps(result) + "\n")
+        sys.exit(0)
+    else:
+        main()
