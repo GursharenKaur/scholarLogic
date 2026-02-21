@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { CheckCircle, XCircle } from "lucide-react";
+import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { CheckCircle, XCircle, Calendar, MapPin, IndianRupee, Heart, FileText } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,7 +12,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, IndianRupee, Heart, FileText } from "lucide-react";
 import Link from "next/link";
 import { toggleSaveScholarship } from "@/actions/application";
 import { cn } from "@/lib/utils";
@@ -224,11 +224,26 @@ export function ScholarshipCard({
       </div>
 
       <CardFooter className="flex gap-2 pt-2">
-        <Link href={`/scholarship/${id}`} className="flex-1">
-          <Button className="w-full bg-blue-600 hover:bg-blue-700">
-            View Details
-          </Button>
-        </Link>
+        <div className="flex-1">
+          {/* If the user IS signed in, this acts as a normal link to the details page */}
+          <SignedIn>
+            <Link href={`/scholarship/${id}`}>
+              <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                View Details
+              </Button>
+            </Link>
+          </SignedIn>
+
+          {/* If the user is NOT signed in, the button is still visible, but clicking it opens the Sign In modal */}
+          <SignedOut>
+            <SignInButton mode="modal" fallbackRedirectUrl={`/scholarship/${id}`}>
+              <button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-all h-9 px-4 py-2 w-full bg-blue-600 text-white hover:bg-blue-700">
+                View Details
+              </button>
+            </SignInButton>
+          </SignedOut>
+        </div>
+        
         {sourcePdf && (
           <Button
             onClick={openPdf}

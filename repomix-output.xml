@@ -49,7 +49,7 @@ ai_pipeline/config.py
 ai_pipeline/db.py
 ai_pipeline/extract_and_insert.py
 ai_pipeline/gemini_client.py
-ai_pipeline/parser.py
+ai_pipeline/MegaLLM_client.py
 ai_pipeline/pdfs/sample1.pdf
 ai_pipeline/pdfs/sample2.pdf
 ai_pipeline/pdfs/sample3.pdf
@@ -64,12 +64,14 @@ app/api/upload-document/route.ts
 app/dashboard/page.tsx
 app/favicon.ico
 app/globals.css
+app/home/page.tsx
 app/layout.tsx
 app/onboarding/page.tsx
 app/page.tsx
 app/scholarship/[id]/page.tsx
 components.json
 components/AISection.tsx
+components/DocumentVault.tsx
 components/ScholarshipCard.tsx
 components/ui/badge.tsx
 components/ui/button.tsx
@@ -82,6 +84,7 @@ document_parser/profileExtractor.ts
 document_parser/README.md
 document_parser/types/profileData.ts
 eslint.config.mjs
+lib/cloudinary.ts
 lib/db.ts
 lib/utils.ts
 middleware.ts
@@ -114,7 +117,7 @@ This section contains the contents of the repository's files.
 import { NextRequest, NextResponse } from 'next/server';
 import { processDocument } from '@/document_parser/ocrService';
 import { extractProfileData, mapExtractedDataToForm } from '@/document_parser/profileExtractor';
-import { DocumentType } from '@/document_parser/types/profileData';
+import { DocumentType, MappedFormData } from '@/document_parser/types/profileData';
 
 /**
  * POST /api/parse-document
@@ -123,9 +126,8 @@ import { DocumentType } from '@/document_parser/types/profileData';
  *   - file        : the uploaded document (File)
  *   - documentType: one of resume | marksheet | idproof | income | category | disability
  *
- * Returns:
- *   { success: true,  data: MappedFormData }
- *   { success: false, error: string }
+ * Always returns 200. If parsing fails for any reason the response will be
+ * { success: true, data: {}, warning: "reason" } so the upload flow is never blocked.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -140,23 +142,47 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        console.log(`📄 [parse-document] Processing "${file.name}" as ${documentType}`);
+        console.log(`📄 [parse-document] "${file.name}" | type=${file.type} | docType=${documentType}`);
 
-        // Step 1: Extract raw text from the document (vision OCR via MegaLLM)
-        const extracted = await processDocument(file);
+        // ── Step 1: Extract text ────────────────────────────────────────────────
+        let extracted: { text: string; source: string; fileName: string };
+        try {
+            extracted = await processDocument(file);
+            console.log(`✅ [parse-document] Text extracted (${extracted.text.length} chars via ${extracted.source})`);
+        } catch (ocrErr) {
+            const ocrMsg = ocrErr instanceof Error ? ocrErr.message : String(ocrErr);
+            console.warn(`⚠️ [parse-document] Text extraction failed: ${ocrMsg}`);
+            // Document was already uploaded to Cloudinary — don't block with 500.
+            // Return empty form data so the upload still registers.
+            return NextResponse.json({
+                success: true,
+                data: {},
+                warning: `Text could not be extracted: ${ocrMsg}`,
+            });
+        }
 
-        // Step 2: Extract structured data from the raw text
-        const extractionResult = await extractProfileData(extracted.text, documentType);
-
-        // Step 3: Map structured data to form field names
-        const mappedData = mapExtractedDataToForm(extractionResult.data);
-
-        console.log(`✅ [parse-document] Mapped data:`, mappedData);
+        // ── Step 2: AI profile extraction ──────────────────────────────────────
+        let mappedData: MappedFormData = {};
+        try {
+            const extractionResult = await extractProfileData(extracted.text, documentType);
+            mappedData = mapExtractedDataToForm(extractionResult.data);
+            console.log(`✅ [parse-document] Mapped fields:`, Object.keys(mappedData));
+        } catch (llmErr) {
+            const llmMsg = llmErr instanceof Error ? llmErr.message : String(llmErr);
+            console.warn(`⚠️ [parse-document] LLM extraction failed: ${llmMsg}`);
+            // Same — don't block the upload with 500.
+            return NextResponse.json({
+                success: true,
+                data: {},
+                warning: `AI parsing failed: ${llmMsg}`,
+            });
+        }
 
         return NextResponse.json({ success: true, data: mappedData });
+
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`❌ [parse-document] Error:`, message);
+        console.error(`❌ [parse-document] Unexpected error:`, message);
         return NextResponse.json({ success: false, error: message }, { status: 500 });
     }
 }
@@ -164,19 +190,18 @@ export async function POST(request: NextRequest) {
 
 <file path="app/api/upload-document/route.ts">
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 import { auth } from '@clerk/nextjs/server';
+import { uploadToCloudinary } from '@/lib/cloudinary';
 
 /**
  * POST /api/upload-document
  *
- * Accepts multipart/form-data with:
+ * Accepts multipart/form-data:
  *   - file    : the File to store
  *   - docType : e.g. "resume" | "marksheet" | "idproof" | "income" | ...
  *
- * Saves the file to public/uploads/<userId>/<docType>_<timestamp>.<ext>
- * and returns the public URL so the client can reference it later.
+ * Uploads the file to Cloudinary under scholar/documents/<userId>/
+ * and returns the secure HTTPS URL so the client can reference it later.
  */
 export async function POST(request: NextRequest) {
     const { userId } = await auth();
@@ -192,7 +217,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Missing file or docType' }, { status: 400 });
     }
 
-    // Validate file size — 10 MB max
+    // 10 MB per file cap
     if (file.size > 10 * 1024 * 1024) {
         return NextResponse.json({ success: false, error: 'File too large (max 10 MB)' }, { status: 413 });
     }
@@ -201,29 +226,138 @@ export async function POST(request: NextRequest) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Sanitise filename
-        const ext = path.extname(file.name).toLowerCase() || '.bin';
-        const safeExt = ['.pdf', '.jpg', '.jpeg', '.png'].includes(ext) ? ext : '.bin';
-        const storedName = `${docType}_${Date.now()}${safeExt}`;
+        const folder = `scholar/documents/${userId}`;
+        const { url, publicId } = await uploadToCloudinary(buffer, file.name, folder);
 
-        // Save under public/uploads/<userId>/
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads', userId);
-        await mkdir(uploadDir, { recursive: true });
-        await writeFile(path.join(uploadDir, storedName), buffer);
-
-        const fileUrl = `/uploads/${userId}/${storedName}`;
+        console.log(`✅ [upload-document] Uploaded ${docType} → ${url}`);
 
         return NextResponse.json({
             success: true,
-            url: fileUrl,
+            url,
+            publicId,
             fileName: file.name,
             docType,
         });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error('[upload-document] Error:', msg);
+        console.error('[upload-document] Cloudinary error:', msg);
         return NextResponse.json({ success: false, error: msg }, { status: 500 });
     }
+}
+</file>
+
+<file path="components/DocumentVault.tsx">
+"use client";
+
+import { FileText, Download, Eye, Clock } from "lucide-react";
+
+type Doc = {
+    _id?: string;
+    type: string;
+    fileName: string;
+    fileUrl: string;
+    publicId?: string;
+    uploadedAt?: string;
+};
+
+interface DocumentVaultProps {
+    documents: Doc[];
+}
+
+const typeColors: Record<string, string> = {
+    "Resume": "bg-blue-100 text-blue-700",
+    "Mark Sheet": "bg-green-100 text-green-700",
+    "ID Proof": "bg-orange-100 text-orange-700",
+    "Income Certificate": "bg-purple-100 text-purple-700",
+    "Category Certificate": "bg-pink-100 text-pink-700",
+    "Disability Certificate": "bg-red-100 text-red-700",
+    "Other": "bg-gray-100 text-gray-700",
+};
+
+function isPDF(url: string) {
+    return url.toLowerCase().includes("/raw/upload/") || url.toLowerCase().endsWith(".pdf");
+}
+
+export function DocumentVault({ documents }: DocumentVaultProps) {
+    if (!documents || documents.length === 0) {
+        return (
+            <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-xl">
+                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">No documents uploaded yet.</p>
+                <p className="text-sm text-gray-400 mt-1">
+                    Upload documents on the{" "}
+                    <a href="/onboarding" className="text-blue-500 underline">profile page</a>.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {documents.map((doc, i) => {
+                const badge = typeColors[doc.type] ?? typeColors["Other"];
+                const pdf = isPDF(doc.fileUrl);
+
+                return (
+                    <div
+                        key={doc._id ?? i}
+                        className="group flex flex-col justify-between border rounded-xl p-4 hover:shadow-md hover:border-blue-300 transition-all bg-white"
+                    >
+                        {/* Top row — icon + type badge */}
+                        <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 bg-gray-50 rounded-lg border">
+                                    <FileText className="w-5 h-5 text-gray-500" />
+                                </div>
+                                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${badge}`}>
+                                    {doc.type}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* File name */}
+                        <p className="text-sm text-gray-700 font-medium truncate mb-1" title={doc.fileName}>
+                            {doc.fileName}
+                        </p>
+
+                        {/* Upload date */}
+                        {doc.uploadedAt && (
+                            <p className="text-xs text-gray-400 flex items-center gap-1 mb-4">
+                                <Clock className="w-3 h-3" />
+                                {new Date(doc.uploadedAt).toLocaleDateString("en-IN", {
+                                    day: "2-digit", month: "short", year: "numeric",
+                                })}
+                            </p>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex gap-2 mt-auto">
+                            {/* Preview — opens in new tab */}
+                            <a
+                                href={doc.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 text-sm py-2 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
+                            >
+                                <Eye className="w-4 h-4" />
+                                Preview
+                            </a>
+
+                            {/* Download — forces download via the download attribute */}
+                            <a
+                                href={doc.fileUrl}
+                                download={doc.fileName}
+                                className="flex-1 flex items-center justify-center gap-1.5 text-sm py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                            >
+                                <Download className="w-4 h-4" />
+                                Download
+                            </a>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
 }
 </file>
 
@@ -239,7 +373,7 @@ export function getApiKey(): string {
 }
 
 export const MEGA_LLM_CONFIG = {
-  baseURL: 'https://api.megallm.com/v1',
+  baseURL: 'https://ai.megallm.io/v1',
   model: 'deepseek-ai/deepseek-v3.1',
   maxTokens: 4096,
   temperature: 0.1,
@@ -369,126 +503,70 @@ export async function extractAndMapFormData(file: File, documentType: DocumentTy
 </file>
 
 <file path="document_parser/ocrService.ts">
-import { getApiKey, MEGA_LLM_CONFIG } from './config';
-
 /**
- * Converts an ArrayBuffer to a base64 string.
+ * ocrService.ts
+ *
+ * • PDF   → pdf-parse v1.1.1  (reads embedded text layer, pure Node.js)
+ * • Image → Tesseract.js       (local OCR, no external API)
+ *
+ * Extracted plain text is passed to profileExtractor.ts which calls the
+ * MegaLLM text-only chat/completions endpoint — no vision model needed.
  */
-function bufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
+
+export async function extractTextFromPDF(buffer: ArrayBuffer): Promise<string> {
+  // pdf-parse v1.1.1 exports module.exports = async function(buffer, options)
+  // createRequire with process.cwd() reliably loads it from project root
+  const { createRequire } = await import('module');
+  const req = createRequire(process.cwd() + '/package.json');
+  const pdfParse = req('pdf-parse') as (buf: Buffer, opts?: object) => Promise<{ text: string; numpages: number }>;
+
+  console.log('📄 Parsing PDF with pdf-parse v1.1.1...');
+  const data = await pdfParse(Buffer.from(buffer));
+  const text = data.text?.trim() ?? '';
+
+  if (text.length < 10) {
+    throw new Error(
+      'Could not extract readable text — this PDF may be image-only. Upload as JPG/PNG instead.'
+    );
   }
-  return btoa(binary);
+
+  console.log(`✅ PDF: ${text.length} chars from ${data.numpages} page(s)`);
+  return text;
 }
 
-/**
- * Extracts text from an image (or single PDF page image) via MegaLLM vision.
- * Sends the image as a base64 data-URL in a chat/completions vision message.
- */
-export async function extractTextWithMegaLLM(
-  imageBuffer: ArrayBuffer,
-  fileName: string,
-  mimeType: string = 'image/jpeg'
-): Promise<{
-  text: string;
-  confidence: number;
-  layout?: any;
-  tables?: any[];
-}> {
-  console.log(`🔍 Processing ${fileName} with Mega LLM vision...`);
+export async function extractTextFromImage(buffer: ArrayBuffer, mimeType: string): Promise<string> {
+  console.log('🔍 Running Tesseract OCR...');
 
-  const base64 = bufferToBase64(imageBuffer);
-  const dataUrl = `data:${mimeType};base64,${base64}`;
+  const { recognize } = await import('tesseract.js');
+  const dataUrl = `data:${mimeType};base64,${Buffer.from(buffer).toString('base64')}`;
 
-  const response = await fetch(`${MEGA_LLM_CONFIG.baseURL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${getApiKey()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: MEGA_LLM_CONFIG.model,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Extract ALL visible text from this document image exactly as it appears. Preserve the structure — headings, fields, and values. Return only the extracted text, nothing else.',
-            },
-            {
-              type: 'image_url',
-              image_url: { url: dataUrl },
-            },
-          ],
-        },
-      ],
-      temperature: 0.0,
-      max_tokens: MEGA_LLM_CONFIG.maxTokens,
-    }),
-  });
+  const result = await recognize(dataUrl, 'eng', { logger: () => { } });
+  const text = result.data.text?.trim() ?? '';
 
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => '');
-    throw new Error(`Mega LLM vision call failed: ${response.status} ${response.statusText} — ${errBody}`);
+  if (text.length < 10) {
+    throw new Error('Tesseract could not extract enough text — try a higher-resolution image.');
   }
 
-  const result = await response.json();
-  const text: string = result.choices?.[0]?.message?.content ?? '';
-
-  if (text.trim().length < 10) {
-    throw new Error('Insufficient text extracted from document');
-  }
-
-  console.log(`✅ Extracted ${text.length} characters from ${fileName}`);
-  return {
-    text,
-    confidence: 0.85,
-    layout: null,
-    tables: [],
-  };
+  console.log(`✅ Image OCR: ${text.length} chars`);
+  return text;
 }
 
-/**
- * Processes a file (image or PDF).
- * For PDFs we send the raw buffer with the correct mime type so the vision
- * model can read a single-page PDF.  For multi-page PDFs full conversion
- * requires a server-side PDF library (pdf2pic / pdfjs-dist) — that is wired
- * up in the API route layer if needed.
- */
 export async function processDocument(file: File): Promise<{
   text: string;
-  confidence?: number;
-  layout?: any;
-  tables?: any[];
   source: 'pdf' | 'image';
-  pages?: number;
   fileName: string;
 }> {
   const fileBuffer = await file.arrayBuffer();
-  const fileName = file.name;
   const fileType = file.type;
 
   if (fileType === 'application/pdf') {
-    // Send the PDF buffer directly; MegaLLM's vision model can process single-page PDFs.
-    const result = await extractTextWithMegaLLM(fileBuffer, fileName, 'application/pdf');
-    return {
-      ...result,
-      source: 'pdf',
-      pages: 1,
-      fileName,
-    };
+    const text = await extractTextFromPDF(fileBuffer);
+    return { text, source: 'pdf', fileName: file.name };
   } else if (fileType.startsWith('image/')) {
-    const result = await extractTextWithMegaLLM(fileBuffer, fileName, fileType);
-    return {
-      ...result,
-      source: 'image',
-      fileName,
-    };
+    const text = await extractTextFromImage(fileBuffer, fileType);
+    return { text, source: 'image', fileName: file.name };
   } else {
-    throw new Error(`Unsupported file type: ${fileType}`);
+    throw new Error(`Unsupported file type: ${fileType}. Upload a PDF, JPG, or PNG.`);
   }
 }
 </file>
@@ -654,45 +732,65 @@ export async function extractProfileData(text: string, documentType: DocumentTyp
   extractedAt: string;
 }> {
   try {
-    const prompt = EXTRACTION_PROMPTS[documentType] + text;
+    // Truncate to avoid token limits (6000 chars ≈ ~1500 tokens)
+    const truncatedText = text.length > 6000 ? text.slice(0, 6000) + '\n[...truncated]' : text;
+    const prompt = EXTRACTION_PROMPTS[documentType] + truncatedText;
 
-    console.log(`🤖 Extracting profile data from ${documentType} using Mega LLM...`);
+    console.log(`🤖 [MegaLLM] Calling ${MEGA_LLM_CONFIG.baseURL} with model ${MEGA_LLM_CONFIG.model}`);
+    console.log(`📝 Prompt length: ${prompt.length} chars`);
 
-    const response = await fetch(`${MEGA_LLM_CONFIG.baseURL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${getApiKey()}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: MEGA_LLM_CONFIG.model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a precise data extraction expert. Always return valid JSON responses only.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: MEGA_LLM_CONFIG.temperature,
-        max_tokens: MEGA_LLM_CONFIG.maxTokens,
-        response_format: { type: 'json_object' }
-      })
-    });
+    // 30-second timeout — prevents hanging fetches
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+
+    let response: Response;
+    try {
+      response = await fetch(`${MEGA_LLM_CONFIG.baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getApiKey()}`,
+          'Content-Type': 'application/json',
+        },
+        // NOTE: response_format is NOT included — deepseek-v3.1 on MegaLLM
+        // does not support it and will reject the request.
+        body: JSON.stringify({
+          model: MEGA_LLM_CONFIG.model,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a precise data extraction expert. Always return valid JSON responses only.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: MEGA_LLM_CONFIG.temperature,
+          max_tokens: MEGA_LLM_CONFIG.maxTokens,
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
-      throw new Error(`Mega LLM API failed: ${response.status} ${response.statusText}`);
+      const body = await response.text().catch(() => '(unreadable)');
+      console.error(`❌ MegaLLM HTTP ${response.status}:`, body);
+      throw new Error(`MegaLLM API returned ${response.status}: ${body.slice(0, 200)}`);
     }
 
     const result = await response.json();
-    const extractedData = JSON.parse(result.choices[0].message.content);
+    const rawContent: string = result.choices?.[0]?.message?.content ?? '{}';
+
+    // Strip markdown code fences if the model wraps the JSON in ```json ... ```
+    const cleaned = rawContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    const extractedData = JSON.parse(cleaned);
 
     console.log(`✅ Successfully extracted data from ${documentType}`);
     return {
       data: extractedData,
-      confidence: 0.85, // Default confidence
+      confidence: 0.85,
       documentType,
       extractedAt: new Date().toISOString()
     };
@@ -1013,6 +1111,56 @@ export interface MappedFormData {
 export type DocumentType = 'income' | 'resume' | 'marksheet' | 'idproof' | 'category' | 'disability';
 </file>
 
+<file path="lib/cloudinary.ts">
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configure once — Cloudinary reads these env vars automatically,
+// but we set them explicitly to be safe.
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+});
+
+/**
+ * Uploads a file buffer to Cloudinary.
+ *
+ * @param buffer   - Raw file bytes
+ * @param fileName - Original file name (used to derive format)
+ * @param folder   - Cloudinary folder path, e.g. "scholar/documents/userId"
+ * @returns The secure HTTPS URL of the uploaded file
+ */
+export async function uploadToCloudinary(
+    buffer: Buffer,
+    fileName: string,
+    folder: string
+): Promise<{ url: string; publicId: string }> {
+    return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+            {
+                folder,
+                resource_type: 'auto',          // handles PDF, images, etc.
+                use_filename: true,
+                unique_filename: true,
+                overwrite: false,
+            },
+            (error, result) => {
+                if (error || !result) {
+                    reject(error ?? new Error('Cloudinary upload returned no result'));
+                } else {
+                    resolve({ url: result.secure_url, publicId: result.public_id });
+                }
+            }
+        );
+
+        uploadStream.end(buffer);
+    });
+}
+
+export { cloudinary };
+</file>
+
 <file path="public/uploads/.gitkeep">
 
 </file>
@@ -1126,17 +1274,152 @@ async function testMegaLLM() {
 testMegaLLM();
 </file>
 
-<file path="ai_pipeline/config.py">
-import os
-from dotenv import load_dotenv
+<file path="ai_pipeline/MegaLLM_client.py">
+"""
+MegaLLM client for the AI pipeline.
 
-load_dotenv()
+MegaLLM exposes an OpenAI-compatible API at https://ai.megallm.io/v1,
+so we use the standard `openai` SDK with a custom base_url.
 
-MONGO_URI = os.getenv("MONGODB_URI")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+Import in the rest of the pipeline:
+    from megallm_client import call_megallm, call_megallm_with_json_schema
+"""
 
-if not MONGO_URI or not GEMINI_API_KEY:
-    raise ValueError("Missing environment variables")
+from openai import OpenAI
+from config import MEGALLM_API_KEY, MEGALLM_MODEL
+import json
+import re
+
+# ── Client setup ────────────────────────────────────────────────────────────
+client = OpenAI(
+    base_url="https://ai.megallm.io/v1",
+    api_key=MEGALLM_API_KEY,
+)
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+def _clean_json_response(text: str) -> str:
+    """
+    Strip markdown code fences and surrounding whitespace from model output.
+    Handles:
+      - ```json\\n[...]\\n```
+      - ```\\n[...]\\n```
+      - Leading/trailing whitespace and newlines
+    """
+    text = text.strip()
+    # Remove opening fence (```json or ```)
+    text = re.sub(r"^```(?:json)?\s*\n?", "", text, flags=re.IGNORECASE)
+    # Remove closing fence
+    text = re.sub(r"\n?```\s*$", "", text)
+    return text.strip()
+
+
+def _extract_json_block(text: str) -> str:
+    """
+    Try to extract the first valid JSON array or object from the text,
+    even if there is surrounding prose.
+    """
+    text = _clean_json_response(text)
+
+    # Fast path: if it already parses, return as-is
+    try:
+        json.loads(text)
+        return text
+    except json.JSONDecodeError:
+        pass
+
+    # Try to find a JSON array first (our expected format)
+    match = re.search(r"(\[.*\])", text, re.DOTALL)
+    if match:
+        candidate = match.group(1)
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            pass
+
+    # Try to find a JSON object
+    match = re.search(r"(\{.*\})", text, re.DOTALL)
+    if match:
+        candidate = match.group(1)
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            pass
+
+    # Give up and return cleaned text (caller will handle JSONDecodeError)
+    return text
+
+
+# ── Public API ───────────────────────────────────────────────────────────────
+def call_megallm(prompt: str, use_json_mode: bool = True) -> str:
+    """
+    Call MegaLLM with optional JSON mode for structured responses.
+
+    Args:
+        prompt (str): The prompt to send.
+        use_json_mode (bool): Whether to request JSON-only output.
+
+    Returns:
+        str: Cleaned response text (valid JSON string when use_json_mode=True).
+    """
+    full_prompt = prompt
+    if use_json_mode:
+        full_prompt = (
+            prompt
+            + "\n\nCRITICAL: Respond with RAW JSON only — no markdown fences, "
+            "no ```json blocks, no explanation. Start your response directly "
+            "with [ or { and end with ] or }."
+        )
+
+    kwargs = {
+        "model": MEGALLM_MODEL,
+        "messages": [{"role": "user", "content": full_prompt}],
+        "temperature": 0.1,
+        "top_p": 0.8,
+        "max_tokens": 8192,
+    }
+
+    try:
+        response = client.chat.completions.create(**kwargs)
+        text = response.choices[0].message.content
+
+        if not text or not text.strip():
+            raise Exception("Empty response from MegaLLM")
+
+        if use_json_mode:
+            return _extract_json_block(text)
+
+        return text.strip()
+
+    except Exception as e:
+        raise Exception(f"MegaLLM API Error: {str(e)}")
+
+
+def call_megallm_with_json_schema(prompt: str, json_schema: dict) -> dict:
+    """
+    Call MegaLLM with a schema hint injected into the prompt.
+
+    Args:
+        prompt (str): The prompt to send.
+        json_schema (dict): JSON schema describing the expected response.
+
+    Returns:
+        dict: Parsed JSON response.
+    """
+    schema_hint = json.dumps(json_schema, indent=2)
+    augmented_prompt = (
+        f"{prompt}\n\n"
+        f"Respond ONLY with valid JSON matching this schema:\n{schema_hint}"
+    )
+
+    try:
+        raw = call_megallm(augmented_prompt, use_json_mode=True)
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise Exception(f"Invalid JSON response from MegaLLM: {str(e)}")
+    except Exception as e:
+        raise Exception(f"MegaLLM API Error: {str(e)}")
 </file>
 
 <file path="app/globals.css">
@@ -1267,6 +1550,265 @@ if not MONGO_URI or not GEMINI_API_KEY:
     @apply bg-background text-foreground;
     @apply bg-background text-foreground;
   }
+}
+</file>
+
+<file path="app/home/page.tsx">
+import { connectToDatabase } from "@/lib/db";
+import Scholarship from "@/models/Scholarship";
+import Application from "@/models/Application";
+import User from "@/models/User";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { ScholarshipCard } from "@/components/ScholarshipCard";
+import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import Link from "next/link";
+export const dynamic = "force-dynamic";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface UserProfile {
+    name: string;
+    cgpa: number;
+    income?: number;   // 0 = not set; we skip income check in that case
+    course?: string;   // e.g. "B.Tech CSE"
+    category?: string; // "General" | "OBC" | "SC" | "ST" | "EWS" | "Other"
+    graduationYear?: number;
+}
+
+interface ScholarshipData {
+    _id: string;
+    title: string;
+    provider: string;
+    amount?: number;
+    amountType?: "CASH" | "WAIVER";
+    deadline?: Date;
+    description?: string;
+    minCGPA?: number;
+    maxIncome?: number;
+    courseRestriction?: string;   // comma-separated e.g. "BCom, BSc, BA"
+    categoryRestriction?: string; // comma-separated e.g. "SC, ST"
+    yearRestriction?: string;
+    applyLink?: string;
+    location?: string;
+    educationLevel?: string;
+    sourcePdf?: string;
+    tags?: string[];
+}
+
+// ─── Eligibility Helper ───────────────────────────────────────────────────────
+
+/**
+ * Returns true only when every restriction the scholarship specifies is met
+ * by the user's profile. A missing restriction means no constraint → passes.
+ */
+function checkEligibility(
+    scholarship: ScholarshipData,
+    profile: UserProfile | null
+): boolean {
+    if (!profile) return false;
+
+    // 1. CGPA — user must meet the minimum
+    if (scholarship.minCGPA && profile.cgpa < scholarship.minCGPA) return false;
+
+    // 2. Income — only enforce when scholarship has a cap AND user has income > 0
+    //    (income === 0 means "not filled in", skip to avoid false negatives)
+    if (scholarship.maxIncome && profile.income && profile.income > 0) {
+        if (profile.income > scholarship.maxIncome) return false;
+    }
+
+    // 3. Course restriction — e.g. "BCom, BSc, BA"
+    //    User must have at least one word of their course in the allowed list
+    if (scholarship.courseRestriction && profile.course) {
+        const allowed = scholarship.courseRestriction.toLowerCase();
+        const userCourse = profile.course.toLowerCase();
+        const anyMatch = userCourse
+            .split(/[\s,]+/)
+            .some((word) => word.length > 1 && allowed.includes(word));
+        if (!anyMatch) return false;
+    }
+
+    // 4. Category restriction — e.g. "SC, ST, OBC"
+    if (scholarship.categoryRestriction && profile.category) {
+        const allowed = scholarship.categoryRestriction.toLowerCase();
+        if (!allowed.includes(profile.category.toLowerCase())) return false;
+    }
+
+    return true;
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
+export default async function Home() {
+    await connectToDatabase();
+
+    // On public routes, currentUser() can throw if Clerk auth context is
+    // not populated. Safely check userId first via auth().
+    const { userId } = await auth();
+    const clerkUser = userId ? await currentUser() : null;
+
+    // Fetch ALL scholarships
+    const rawScholarships = await Scholarship.find({})
+        .sort({ createdAt: -1 })
+        .lean();
+
+    const allScholarships: ScholarshipData[] = rawScholarships.map((s) => ({
+        ...s,
+        _id: s._id.toString(),
+        deadline: s.deadline ? new Date(s.deadline) : undefined,
+    }));
+
+    let userProfile: UserProfile | null = null;
+    let savedScholarshipIds = new Set<string>();
+
+
+    if (clerkUser) {
+        const [user, savedApplications] = await Promise.all([
+            User.findOne({ clerkId: clerkUser.id }).lean(),
+            Application.find({ clerkId: clerkUser.id, status: "Saved" }).lean(),
+        ]);
+
+        // (We removed the redirect failsafe from here!)
+
+        savedScholarshipIds = new Set(
+            savedApplications.map((app) => app.scholarshipId.toString())
+        );
+
+        if (user) {
+            userProfile = user as unknown as UserProfile;
+        }
+    }
+
+    // Tag each scholarship with eligibility, then sort: eligible first
+    const scholarships = allScholarships
+        .map((s) => ({
+            ...s,
+            isEligible: checkEligibility(s, userProfile),
+        }))
+        .sort((a, b) => Number(b.isEligible) - Number(a.isEligible));
+
+    const eligibleCount = scholarships.filter((s) => s.isEligible).length;
+
+    return (
+        <main className="min-h-screen bg-gray-50 p-8">
+            {/* Navbar */}
+            <nav className="flex justify-between items-center mb-12">
+                <h1 className="text-3xl font-bold text-blue-900">
+                    scholar<span className="text-blue-600">Logic</span>
+                </h1>
+                <div className="flex gap-4 items-center">
+                    {/* 👇 We removed the Update Profile link from here! */}
+                    <Link href="/dashboard" className="text-sm font-medium hover:underline">
+                        My Dashboard
+                    </Link>
+                    <SignedOut>
+                        <SignInButton mode="modal" fallbackRedirectUrl="/home">
+                            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                Sign In
+                            </button>
+                        </SignInButton>
+                    </SignedOut>
+                    <SignedIn>
+                        <UserButton afterSignOutUrl="/" />
+                    </SignedIn>
+                </div>
+            </nav>
+
+            
+            {/* Welcome / Status Banner */}
+            <div className="mb-8">
+                {userProfile ? (
+                    <div key="banner-green" className="bg-green-100 border border-green-300 p-4 rounded-xl text-green-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <p className="font-bold">
+                                Welcome back, {userProfile.name || "Student"}! 👋
+                            </p>
+                            <p className="text-sm mt-1 text-green-800">
+                                Based on your profile (CGPA: <strong>{userProfile.cgpa}</strong>
+                                {userProfile.course && <>, Course: <strong>{userProfile.course}</strong></>}
+                                {userProfile.category && <>, Category: <strong>{userProfile.category}</strong></>}
+                                ), you are eligible for <strong>{eligibleCount}</strong> out of{" "}
+                                <strong>{scholarships.length}</strong> scholarships.
+                            </p>
+                        </div>
+                        <Link 
+                            href="/onboarding" 
+                            className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors shrink-0 shadow-sm"
+                        >
+                            ✏️ Edit Profile
+                        </Link>
+                    </div>
+                ) : clerkUser ? (
+                    <div key="banner-amber" className="bg-amber-50 border border-amber-300 p-4 rounded-xl text-amber-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <p className="font-bold text-amber-800">
+                                Welcome! Let&apos;s get you set up. 🚀
+                            </p>
+                            <p className="text-sm mt-1 text-amber-800">
+                                You are browsing <strong>{scholarships.length}</strong> scholarships. Complete your profile so our AI can instantly match you with the ones you actually qualify for!
+                            </p>
+                        </div>
+                        <Link 
+                            href="/onboarding" 
+                            className="bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-700 transition-colors shrink-0 shadow-sm"
+                        >
+                            ✨ Complete Profile
+                        </Link>
+                    </div>
+                ) : (
+                    <div key="banner-blue" className="bg-blue-50 border border-blue-300 p-4 rounded-xl text-blue-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <p className="font-bold text-blue-800">
+                                🔍 Discover Your Matches
+                            </p>
+                            <p className="text-sm mt-1 text-blue-800">
+                                You are currently browsing all <strong>{scholarships.length}</strong> scholarships. Sign in and complete your profile to see personalised eligibility badges!
+                            </p>
+                        </div>
+                        <SignInButton mode="modal" fallbackRedirectUrl="/home">
+                            <button className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shrink-0 shadow-sm">
+                                Sign In to Match
+                            </button>
+                        </SignInButton>
+                    </div>
+                )}
+            </div>
+
+
+            {/* Scholarship Grid */}
+            {scholarships.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {scholarships.map((scholarship) => (
+                        <ScholarshipCard
+                            key={scholarship._id}
+                            id={scholarship._id}
+                            title={scholarship.title}
+                            provider={scholarship.provider}
+                            amount={scholarship.amount}
+                            amountType={scholarship.amountType}
+                            location={scholarship.location}
+                            deadline={scholarship.deadline}
+                            tags={scholarship.tags}
+                            courseRestriction={scholarship.courseRestriction}
+                            categoryRestriction={scholarship.categoryRestriction}
+                            yearRestriction={scholarship.yearRestriction}
+                            minCGPA={scholarship.minCGPA}
+                            maxIncome={scholarship.maxIncome}
+                            sourcePdf={scholarship.sourcePdf}
+                            isSavedInitial={savedScholarshipIds.has(scholarship._id)}
+                            isEligible={userProfile !== null ? scholarship.isEligible : undefined}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-20">
+                    <p className="text-xl text-gray-500">No scholarships found. 😔</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                        Check back later — new scholarships are added regularly!
+                    </p>
+                </div>
+            )}
+        </main>
+    );
 }
 </file>
 
@@ -1633,25 +2175,6 @@ export function cn(...inputs: ClassValue[]) {
 }
 </file>
 
-<file path="middleware.ts">
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-
-const isPublicRoute = createRouteMatcher(['/', '/scholarship(.*)']);
-
-export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect();
-  }
-});
-
-export const config = {
-  matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    '/(api|trpc)(.*)',
-  ],
-};
-</file>
-
 <file path="models/Application.ts">
 import mongoose, { Schema, Document, Model } from "mongoose";
 
@@ -1699,6 +2222,13 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "20mb",
     },
   },
+
+  // pdf-parse and tesseract.js use Node.js APIs — keep them server-side only
+  serverExternalPackages: ["pdf-parse", "tesseract.js"],
+
+  // Turbopack is the default in Next.js 16. 
+  // We set an empty config here to silence the webpack-conflict warning.
+  turbopack: {},
 };
 
 export default nextConfig;
@@ -1885,7 +2415,7 @@ export async function createScholarship(formData: FormData) {
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { connectToDatabase } from "@/lib/db";
 import User from "@/models/User";
-import { redirect } from "next/navigation";
+import Application from "@/models/Application";
 
 export async function saveUserProfile(formData: FormData) {
   // 1. Check if user is logged in
@@ -1900,6 +2430,8 @@ export async function saveUserProfile(formData: FormData) {
   await connectToDatabase();
 
   // 3. Extract Data from Form
+  const clerkName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+  const name = (formData.get("name") as string)?.trim() || clerkName;
   const cgpa = parseFloat(formData.get("cgpa") as string);
   const income = parseFloat(formData.get("income") as string);
   const course = formData.get("course") as string;
@@ -1927,18 +2459,14 @@ export async function saveUserProfile(formData: FormData) {
     disability: "Disability Certificate",
   };
 
-  const documents: { type: string; fileName: string; fileUrl: string; uploadedAt: Date }[] = [];
+  const documents: { type: string; fileName: string; fileUrl: string; publicId: string; uploadedAt: Date }[] = [];
   for (const [key, value] of formData.entries()) {
     if (key.startsWith("docUrl_") && typeof value === "string" && value.length > 0) {
       const docKey = key.replace("docUrl_", "");
       const docLabel = docTypeLabels[docKey] ?? "Other";
       const fileName = (formData.get(`docName_${docKey}`) as string) ?? "";
-      documents.push({
-        type: docLabel,
-        fileName,
-        fileUrl: value,
-        uploadedAt: new Date(),
-      });
+      const publicId = (formData.get(`docPublicId_${docKey}`) as string) ?? "";
+      documents.push({ type: docLabel, fileName, fileUrl: value, publicId, uploadedAt: new Date() });
     }
   }
 
@@ -1948,7 +2476,7 @@ export async function saveUserProfile(formData: FormData) {
     {
       clerkId: userId,
       email: user.emailAddresses[0].emailAddress,
-      name: `${user.firstName} ${user.lastName}`,
+      name,
       cgpa,
       income,
       course,
@@ -1963,131 +2491,41 @@ export async function saveUserProfile(formData: FormData) {
       firstGeneration,
       gender,
       dateOfBirth,
-      // Only overwrite documents array if new files were uploaded
+      // Only overwrite documents if new ones were uploaded
       ...(documents.length > 0 && { documents }),
     },
     { upsert: true, new: true }
   );
 
-  // 6. Redirect back to homepage
-  redirect("/");
+  // Return successfully — client handles navigation via router.push('/home')
+  return { success: true };
 }
-</file>
 
-<file path="ai_pipeline/gemini_client.py">
-from google import genai
-from config import GEMINI_API_KEY
-import json
-import re
+export async function getUserProfile() {
+  const { userId } = await auth();
+  if (!userId) return null;
+  
+  await connectToDatabase();
+  const user = await User.findOne({ clerkId: userId }).lean();
+  
+  // Convert MongoDB document to plain JSON so Client Components can read it
+  return user ? JSON.parse(JSON.stringify(user)) : null;
+}
 
-# Configure the Gemini API
-client = genai.Client(api_key=GEMINI_API_KEY)
+export async function deleteUserProfile() {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
 
-def call_gemini(prompt, use_json_mode=True):
-    """
-    Call Gemini API with optional JSON mode for structured responses.
-    
-    Args:
-        prompt (str): The prompt to send to Gemini
-        use_json_mode (bool): Whether to request JSON response format
-    
-    Returns:
-        str: The response text from Gemini
-    """
-    # Configure generation parameters
-    config = {
-        "temperature": 0.1,
-        "top_p": 0.8,
-        "top_k": 40,
-        "max_output_tokens": 8192,
-    }
-    
-    # Add JSON mode instruction if requested
-    if use_json_mode:
-        prompt = prompt + "\n\nIMPORTANT: You must respond with valid JSON only. Do not include any explanatory text outside the JSON structure."
-        config["response_mime_type"] = "application/json"
-    
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=config
-        )
-        
-        if response.text:
-            text = response.text.strip()
-            
-            # Remove markdown code blocks if present
-            if text.startswith('```json'):
-                text = re.sub(r'```json\s*', '', text)
-            if text.startswith('```'):
-                text = re.sub(r'```\s*', '', text)
-            if text.endswith('```'):
-                text = re.sub(r'\s*```$', '', text)
-            
-            return text.strip()
-        else:
-            raise Exception("Empty response from Gemini")
-            
-    except Exception as e:
-        raise Exception(f"Gemini API Error: {str(e)}")
+  await connectToDatabase();
 
-def call_gemini_with_json_schema(prompt, json_schema):
-    """
-    Call Gemini API with structured output using JSON schema.
-    
-    Args:
-        prompt (str): The prompt to send to Gemini
-        json_schema (dict): JSON schema for response structure
-    
-    Returns:
-        dict: Parsed JSON response matching the schema
-    """
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config={
-                "temperature": 0.1,
-                "top_p": 0.8,
-                "top_k": 40,
-                "max_output_tokens": 8192,
-                "response_mime_type": "application/json",
-                "response_schema": json_schema
-            }
-        )
-        
-        if response.text:
-            # Parse and return the JSON response
-            return json.loads(response.text.strip())
-        else:
-            raise Exception("Empty response from Gemini")
-            
-    except json.JSONDecodeError as e:
-        raise Exception(f"Invalid JSON response from Gemini: {str(e)}")
-    except Exception as e:
-        raise Exception(f"Gemini API Error: {str(e)}")
-</file>
+  // 1. Delete the user's profile
+  await User.findOneAndDelete({ clerkId: userId });
 
-<file path="ai_pipeline/parser.py">
-import re
-import json
+  // 2. Clear all their saved/applied scholarships so they start completely fresh
+  await Application.deleteMany({ clerkId: userId });
 
-def safe_json_parse(response_text):
-    if not response_text:
-        raise ValueError("Empty Gemini response")
-
-    cleaned = response_text.strip()
-    cleaned = cleaned.replace("```json", "").replace("```", "")
-
-    match = re.search(r"\[.*\]", cleaned, re.DOTALL)
-
-    if not match:
-        raise ValueError("No JSON object found")
-
-    json_text = match.group(0)
-
-    return json.loads(json_text)
+  return { success: true };
+}
 </file>
 
 <file path="app/admin/page.tsx">
@@ -2224,7 +2662,9 @@ import { redirect } from "next/navigation";
 import { connectToDatabase } from "@/lib/db";
 import Application from "@/models/Application";
 import Scholarship from "@/models/Scholarship";
+import User from "@/models/User";
 import { ScholarshipCard } from "@/components/ScholarshipCard";
+import { DocumentVault } from "@/components/DocumentVault";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LayoutDashboard, Bookmark, Send, Trophy, FileText } from "lucide-react";
@@ -2240,16 +2680,26 @@ export default async function DashboardPage() {
 
   await connectToDatabase();
 
-  // 2. Fetch User's Applications/Saves
-  // We populate the scholarship details so we can render the cards
-  const applications = await Application.find({ clerkId: userId })
-    .populate("scholarshipId")
-    .lean();
+  // 2. Fetch User's Applications/Saves + their profile (for documents)
+  const [applications, userProfile] = await Promise.all([
+    Application.find({ clerkId: userId }).populate("scholarshipId").lean(),
+    User.findOne({ clerkId: userId }).lean(),
+  ]);
 
-  // 3. Categorize Data
-  const saved = applications.filter((app) => app.status === "Saved");
-  const applied = applications.filter((app) => app.status === "Applied");
-  const won = applications.filter((app) => app.status === "Won");
+  // 3. Categorize scholarship data
+  const saved = (applications as any[]).filter((app) => app.status === "Saved");
+  const applied = (applications as any[]).filter((app) => app.status === "Applied");
+  const won = (applications as any[]).filter((app) => app.status === "Won");
+
+  // 4. Serialize documents for the client component
+  const documents = ((userProfile as any)?.documents ?? []).map((doc: any) => ({
+    _id: doc._id?.toString(),
+    type: doc.type,
+    fileName: doc.fileName,
+    fileUrl: doc.fileUrl,
+    publicId: doc.publicId ?? "",
+    uploadedAt: doc.uploadedAt?.toISOString?.() ?? null,
+  }));
 
   return (
     <div className="p-8 max-w-7xl mx-auto min-h-screen space-y-8">
@@ -2292,29 +2742,31 @@ export default async function DashboardPage() {
         </Card>
         <Card className="border-l-4 border-l-purple-500 bg-purple-50/30">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium italic">Doc Vault</CardTitle>
+            <CardTitle className="text-sm font-medium">Doc Vault</CardTitle>
             <FileText className="w-4 h-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-xs text-muted-foreground">Status: Phase 2 Pending</div>
+            <div className="text-2xl font-bold">{documents.length}</div>
+            <p className="text-xs text-muted-foreground">documents stored</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Tabs Logic */}
+      {/* Main Tabs */}
       <Tabs defaultValue="saved" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
+        <TabsList className="grid w-full max-w-lg grid-cols-4">
           <TabsTrigger value="saved">Saved</TabsTrigger>
           <TabsTrigger value="applied">Applied</TabsTrigger>
           <TabsTrigger value="won">Won</TabsTrigger>
+          <TabsTrigger value="documents">My Docs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="saved" className="pt-6">
           {saved.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {saved.map((app: any) => (
-                <ScholarshipCard 
-                  key={app._id} 
+                <ScholarshipCard
+                  key={app._id}
                   id={app.scholarshipId._id.toString()}
                   title={app.scholarshipId.title}
                   provider={app.scholarshipId.provider}
@@ -2333,15 +2785,20 @@ export default async function DashboardPage() {
         </TabsContent>
 
         <TabsContent value="applied" className="pt-6">
-           <div className="text-center py-20 border-2 border-dashed rounded-xl">
-              <p className="text-muted-foreground">Tracking for applied scholarships coming soon.</p>
-            </div>
+          <div className="text-center py-20 border-2 border-dashed rounded-xl">
+            <p className="text-muted-foreground">Tracking for applied scholarships coming soon.</p>
+          </div>
         </TabsContent>
 
         <TabsContent value="won" className="pt-6">
-           <div className="text-center py-20 bg-green-50 border-2 border-green-200 border-dashed rounded-xl">
-              <p className="text-green-700 font-medium">Your successful awards will appear here!</p>
-            </div>
+          <div className="text-center py-20 bg-green-50 border-2 border-green-200 border-dashed rounded-xl">
+            <p className="text-green-700 font-medium">Your successful awards will appear here!</p>
+          </div>
+        </TabsContent>
+
+        {/* ✅ Document Vault tab — now live */}
+        <TabsContent value="documents" className="pt-6">
+          <DocumentVault documents={documents} />
         </TabsContent>
       </Tabs>
     </div>
@@ -2535,6 +2992,25 @@ export async function connectToDatabase() {
 }
 </file>
 
+<file path="middleware.ts">
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+
+const isPublicRoute = createRouteMatcher(['/', '/home', '/scholarship(.*)']);
+
+export default clerkMiddleware(async (auth, request) => {
+  if (!isPublicRoute(request)) {
+    await auth.protect();
+  }
+});
+
+export const config = {
+  matcher: [
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/(api|trpc)(.*)',
+  ],
+};
+</file>
+
 <file path="models/User.ts">
 import mongoose from "mongoose";
 
@@ -2559,11 +3035,12 @@ const UserSchema = new mongoose.Schema({
   gender: { type: String, enum: ["Male", "Female", "Other", "Prefer not to say"] },
   dateOfBirth: { type: Date }, // For age calculation
 
-  // Document storage
+  // Document storage (Cloudinary)
   documents: [{
     type: { type: String, enum: ["Income Certificate", "Resume", "Mark Sheet", "ID Proof", "Category Certificate", "Disability Certificate", "Other"] },
     fileName: { type: String },
-    fileUrl: { type: String }, // Cloud storage URL
+    fileUrl: { type: String }, // Cloudinary secure_url
+    publicId: { type: String }, // Cloudinary public_id (for deletion/replacement)
     uploadedAt: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });
@@ -2708,27 +3185,167 @@ export async function generateSOP(scholarshipId: string) {
 }
 </file>
 
-<file path="ai_pipeline/requirements.txt">
-pymongo
-python-dotenv
-requests
-pymupdf
-pytesseract
-pillow
-google-genai
+<file path="ai_pipeline/gemini_client.py">
+"""
+MegaLLM client — drop-in replacement for the old Gemini client.
+
+MegaLLM exposes an OpenAI-compatible API at https://ai.megallm.io/v1,
+so we use the standard `openai` SDK with a custom base_url.
+
+Import unchanged in the rest of the pipeline:
+    from gemini_client import call_gemini, call_gemini_with_json_schema
+"""
+
+from openai import OpenAI
+from config import MEGALLM_API_KEY, MEGALLM_MODEL
+import json
+import re
+
+# ── Client setup ────────────────────────────────────────────────────────────
+client = OpenAI(
+    base_url="https://ai.megallm.io/v1",
+    api_key=MEGALLM_API_KEY,
+)
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+def _clean_json_response(text: str) -> str:
+    """
+    Strip markdown code fences and surrounding whitespace from model output.
+    Handles:
+      - ```json\\n[...]\\n```
+      - ```\\n[...]\\n```
+      - Leading/trailing whitespace and newlines
+    """
+    text = text.strip()
+    # Remove opening fence (```json or ```)
+    text = re.sub(r"^```(?:json)?\s*\n?", "", text, flags=re.IGNORECASE)
+    # Remove closing fence
+    text = re.sub(r"\n?```\s*$", "", text)
+    return text.strip()
+
+
+def _extract_json_block(text: str) -> str:
+    """
+    Try to extract the first valid JSON array or object from the text,
+    even if there is surrounding prose.
+    """
+    text = _clean_json_response(text)
+
+    # Fast path: if it already parses, return as-is
+    try:
+        json.loads(text)
+        return text
+    except json.JSONDecodeError:
+        pass
+
+    # Try to find a JSON array first (our expected format)
+    match = re.search(r"(\[.*\])", text, re.DOTALL)
+    if match:
+        candidate = match.group(1)
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            pass
+
+    # Try to find a JSON object
+    match = re.search(r"(\{.*\})", text, re.DOTALL)
+    if match:
+        candidate = match.group(1)
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            pass
+
+    # Give up and return cleaned text (caller will handle JSONDecodeError)
+    return text
+
+
+# ── Public API (same signatures as the old Gemini client) ───────────────────
+def call_gemini(prompt: str, use_json_mode: bool = True) -> str:
+    """
+    Call MegaLLM with optional JSON mode for structured responses.
+
+    Args:
+        prompt (str): The prompt to send.
+        use_json_mode (bool): Whether to request JSON-only output.
+
+    Returns:
+        str: Cleaned response text (valid JSON string when use_json_mode=True).
+    """
+    full_prompt = prompt
+    if use_json_mode:
+        full_prompt = (
+            prompt
+            + "\n\nCRITICAL: Respond with RAW JSON only — no markdown fences, "
+            "no ```json blocks, no explanation. Start your response directly "
+            "with [ or { and end with ] or }."
+        )
+
+    kwargs = {
+        "model": MEGALLM_MODEL,
+        "messages": [{"role": "user", "content": full_prompt}],
+        "temperature": 0.1,
+        "top_p": 0.8,
+        "max_tokens": 8192,
+    }
+
+    try:
+        response = client.chat.completions.create(**kwargs)
+        text = response.choices[0].message.content
+
+        if not text or not text.strip():
+            raise Exception("Empty response from MegaLLM")
+
+        if use_json_mode:
+            return _extract_json_block(text)
+
+        return text.strip()
+
+    except Exception as e:
+        raise Exception(f"MegaLLM API Error: {str(e)}")
+
+
+def call_gemini_with_json_schema(prompt: str, json_schema: dict) -> dict:
+    """
+    Call MegaLLM with a schema hint injected into the prompt.
+
+    Args:
+        prompt (str): The prompt to send.
+        json_schema (dict): JSON schema describing the expected response.
+
+    Returns:
+        dict: Parsed JSON response.
+    """
+    schema_hint = json.dumps(json_schema, indent=2)
+    augmented_prompt = (
+        f"{prompt}\n\n"
+        f"Respond ONLY with valid JSON matching this schema:\n{schema_hint}"
+    )
+
+    try:
+        raw = call_gemini(augmented_prompt, use_json_mode=True)
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise Exception(f"Invalid JSON response from MegaLLM: {str(e)}")
+    except Exception as e:
+        raise Exception(f"MegaLLM API Error: {str(e)}")
 </file>
 
 <file path="app/onboarding/page.tsx">
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { saveUserProfile } from "@/actions/user";
+import { saveUserProfile, getUserProfile ,deleteUserProfile } from "@/actions/user";
 import { Upload, FileText, Loader2, CheckCircle, XCircle } from "lucide-react";
+
 
 type DocState = {
   fileName: string;
-  url: string;        // public path returned by /api/upload-document
+  url: string;       // Cloudinary secure_url
+  publicId: string;  // Cloudinary public_id
   status: 'uploading' | 'done' | 'error';
   error?: string;
 };
@@ -2736,7 +3353,24 @@ type DocState = {
 export default function OnboardingPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
   const [docStates, setDocStates] = useState<Record<string, DocState>>({});
+
+  useEffect(() => {
+    async function loadData() {
+      const data = await getUserProfile();
+      if (data) {
+        // Format date for HTML date input (YYYY-MM-DD)
+        if (data.dateOfBirth) {
+          data.dateOfBirth = new Date(data.dateOfBirth).toISOString().split('T')[0];
+        }
+        setProfile(data);
+      }
+      setIsLoading(false);
+    }
+    loadData();
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, docType: string) => {
     const file = e.target.files?.[0];
@@ -2745,7 +3379,7 @@ export default function OnboardingPage() {
     // Mark as uploading immediately so the UI updates
     setDocStates(prev => ({
       ...prev,
-      [docType]: { fileName: file.name, url: '', status: 'uploading' },
+      [docType]: { fileName: file.name, url: '', publicId: '', status: 'uploading' },
     }));
 
     // 1️⃣ Upload the file to disk so it persists across navigations
@@ -2763,13 +3397,13 @@ export default function OnboardingPage() {
       uploadedUrl = uploadResult.url;
       setDocStates(prev => ({
         ...prev,
-        [docType]: { fileName: file.name, url: uploadedUrl, status: 'done' },
+        [docType]: { fileName: file.name, url: uploadedUrl, publicId: uploadResult.publicId ?? '', status: 'done' },
       }));
-      console.log(`✅ File saved: ${uploadedUrl}`);
+      console.log(`✅ Cloudinary upload: ${uploadedUrl}`);
     } catch (err: any) {
       setDocStates(prev => ({
         ...prev,
-        [docType]: { fileName: file.name, url: '', status: 'error', error: err.message },
+        [docType]: { fileName: file.name, url: '', publicId: '', status: 'error', error: err.message },
       }));
       console.error(`Upload failed for ${docType}:`, err.message);
       return; // Don't attempt parse if upload failed
@@ -2822,6 +3456,21 @@ export default function OnboardingPage() {
     setTimeout(() => document.body.removeChild(msg), 5000);
   };
 
+  const handleDelete = async () => {
+    const confirmDelete = window.confirm("Are you sure you want to completely delete your profile and saved scholarships? This action cannot be undone.");
+    if (!confirmDelete) return;
+
+    setIsSubmitting(true);
+    try {
+      await deleteUserProfile();
+      router.push("/home"); // Redirect to home, they will see the amber "Complete Profile" banner again
+    } catch (error) {
+      console.error("Error deleting profile:", error);
+      alert("Failed to delete profile.");
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -2835,17 +3484,18 @@ export default function OnboardingPage() {
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
 
-    // Append stored document URLs + original file names (no raw files — avoids 1 MB server-action limit)
+    // Append stored document metadata (strings only — no binary files)
     Object.entries(docStates).forEach(([docType, doc]) => {
       if (doc.url) {
         formData.append(`docUrl_${docType}`, doc.url);
         formData.append(`docName_${docType}`, doc.fileName);
+        formData.append(`docPublicId_${docType}`, doc.publicId);
       }
     });
 
     try {
       await saveUserProfile(formData);
-      router.push('/');
+      router.push("/home");
     } catch (error) {
       console.error('Error saving profile:', error);
       alert('Failed to save profile. Please try again.');
@@ -2854,13 +3504,23 @@ export default function OnboardingPage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-xl font-semibold text-gray-500 animate-pulse">Loading your profile...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            {profile ? "Update Your Profile" : "Complete Your Profile"}
+          </h1>
           <p className="text-lg text-gray-600">
-            Help us find the best scholarships tailored just for you
+            Keep your details up to date to find the best scholarships.
           </p>
         </div>
 
@@ -2875,8 +3535,9 @@ export default function OnboardingPage() {
                 <input
                   name="name"
                   type="text"
+                  defaultValue={profile?.name || ""}
                   placeholder="Your full name"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 />
@@ -2887,7 +3548,8 @@ export default function OnboardingPage() {
                 <input
                   name="dateOfBirth"
                   type="date"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={profile?.dateOfBirth || ""}
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 />
@@ -2897,7 +3559,8 @@ export default function OnboardingPage() {
                 <label className="block text-sm font-medium mb-2">Gender <span className="text-red-500">*</span></label>
                 <select
                   name="gender"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={profile?.gender || ""}
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 >
@@ -2914,9 +3577,9 @@ export default function OnboardingPage() {
                 <input
                   name="nationality"
                   type="text"
+                  defaultValue={profile?.nationality || "Indian"}
                   placeholder="e.g., Indian"
-                  defaultValue="Indian"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 />
@@ -2933,7 +3596,8 @@ export default function OnboardingPage() {
                 <label className="block text-sm font-medium mb-2">Education Level <span className="text-red-500">*</span></label>
                 <select
                   name="educationLevel"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={profile?.educationLevel || ""}
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 >
@@ -2950,8 +3614,9 @@ export default function OnboardingPage() {
                 <input
                   name="course"
                   type="text"
+                  defaultValue={profile?.course || ""}
                   placeholder="e.g., B.Tech CSE"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 />
@@ -2962,8 +3627,9 @@ export default function OnboardingPage() {
                 <input
                   name="university"
                   type="text"
+                  defaultValue={profile?.university || ""}
                   placeholder="e.g., IIT Delhi"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 />
@@ -2976,8 +3642,9 @@ export default function OnboardingPage() {
                   type="number"
                   min="2024"
                   max="2030"
+                  defaultValue={profile?.graduationYear || ""}
                   placeholder="e.g., 2025"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 />
@@ -2991,8 +3658,9 @@ export default function OnboardingPage() {
                   step="0.01"
                   min="0"
                   max="10"
+                  defaultValue={profile?.cgpa || ""}
                   placeholder="e.g., 7.5"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 />
@@ -3011,9 +3679,9 @@ export default function OnboardingPage() {
                 <input
                   name="country"
                   type="text"
+                  defaultValue={profile?.country || "India"}
                   placeholder="e.g., India"
-                  defaultValue="India"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 />
@@ -3024,8 +3692,9 @@ export default function OnboardingPage() {
                 <input
                   name="state"
                   type="text"
-                  placeholder="e.g., Maharashtra"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={profile?.state || ""}
+                  placeholder="e.g., Punjab"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 />
@@ -3043,8 +3712,9 @@ export default function OnboardingPage() {
                 <input
                   name="income"
                   type="number"
+                  defaultValue={profile?.income || ""}
                   placeholder="e.g., 400000"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 />
@@ -3054,7 +3724,8 @@ export default function OnboardingPage() {
                 <label className="block text-sm font-medium mb-2">Category <span className="text-red-500">*</span></label>
                 <select
                   name="category"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={profile?.category || ""}
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                   suppressHydrationWarning
                 >
@@ -3074,6 +3745,7 @@ export default function OnboardingPage() {
                 <input
                   name="disability"
                   type="checkbox"
+                  defaultChecked={profile?.disability || false}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                   suppressHydrationWarning
                 />
@@ -3084,6 +3756,7 @@ export default function OnboardingPage() {
                 <input
                   name="firstGeneration"
                   type="checkbox"
+                  defaultChecked={profile?.firstGeneration || false}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                   suppressHydrationWarning
                 />
@@ -3112,8 +3785,8 @@ export default function OnboardingPage() {
                 const ds = docStates[doc.type];
                 return (
                   <div key={doc.type} className={`border-2 border-dashed rounded-lg p-4 transition-colors ${ds?.status === 'done' ? 'border-green-400 bg-green-50' :
-                      ds?.status === 'error' ? 'border-red-400 bg-red-50' :
-                        'border-gray-300'
+                    ds?.status === 'error' ? 'border-red-400 bg-red-50' :
+                      'border-gray-300'
                     }`}>
                     <div className="flex items-center justify-between mb-3">
                       <label className="flex items-center space-x-2 cursor-pointer">
@@ -3139,8 +3812,8 @@ export default function OnboardingPage() {
                     <label
                       htmlFor={`file-${doc.type}`}
                       className={`flex items-center justify-center w-full p-3 border border-gray-300 rounded-lg transition-colors ${ds?.status === 'uploading'
-                          ? 'cursor-not-allowed bg-gray-100'
-                          : 'cursor-pointer hover:bg-gray-50'
+                        ? 'cursor-not-allowed bg-gray-100'
+                        : 'cursor-pointer hover:bg-gray-50'
                         }`}
                     >
                       {ds?.status === 'uploading' ? (
@@ -3163,22 +3836,28 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Action Button */}
-          <div className="flex justify-center">
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg"
+              className="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg shadow-md hover:shadow-lg w-full sm:w-auto"
               suppressHydrationWarning
             >
-              {isSubmitting ? "Processing..." : "Complete Profile & Find Scholarships"}
+              {isSubmitting ? "Saving..." : profile ? "Update Profile" : "Complete Profile & Find Scholarships"}
             </button>
-          </div>
 
-          <div className="text-center mt-4">
-            <p className="text-sm text-gray-500">
-              Your profile information and uploaded documents will be automatically saved.
-            </p>
+            {/* 👇 NEW: Delete Profile Button (Only shows if profile exists) */}
+            {profile && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isSubmitting}
+                className="px-8 py-4 bg-red-50 text-red-600 border border-red-200 font-semibold rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors text-lg w-full sm:w-auto"
+              >
+                Delete Profile
+              </button>
+            )}
           </div>
         </form>
       </div>
@@ -3289,57 +3968,33 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 </file>
 
-<file path="ai_pipeline/db.py">
-from pymongo import MongoClient
-from config import MONGO_URI
+<file path="ai_pipeline/config.py">
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 
-client = MongoClient(MONGO_URI)
-db = client["Data"]
-collection = db["scholarships"]
+# Load variables from the single root .env.local (one level above ai_pipeline/)
+dotenv_path = Path(__file__).resolve().parent.parent / ".env.local"
+load_dotenv(dotenv_path=dotenv_path)
 
-def insert_if_not_exists(data):
-    # Clean and validate required fields
-    data["title"] = data["title"].strip() if data.get("title") else ""
-    data["provider"] = data["provider"].strip() if data.get("provider") else ""
+MONGO_URI = os.getenv("MONGODB_URI")
+MEGALLM_API_KEY = os.getenv("MEGALLM_API_KEY")
+MEGALLM_MODEL = os.getenv("MEGALLM_MODEL", "deepseek-ai/deepseek-v3.1")  # default model
 
-    if not data["title"] or not data["provider"]:
-        print("⚠ Missing required fields (title or provider)")
-        return False
+if not MONGO_URI:
+    raise ValueError("Missing MONGODB_URI environment variable")
+if not MEGALLM_API_KEY:
+    raise ValueError("Missing MEGALLM_API_KEY environment variable")
+</file>
 
-    existing = collection.find_one({
-        "title": data["title"],
-        "provider": data["provider"]
-    })
-
-    if existing:
-        if pdf_filename and not existing.get("sourcePdf"):
-            collection.update_one({"_id": existing["_id"]}, {"$set": {"sourcePdf": pdf_filename}})
-            print(f"✅ Updated existing scholarship '{data['title']}' with PDF link: {pdf_filename}")
-        else:
-            print("⚠ Scholarship already exists.")
-        return False
-
-    # Prepare document with new schema
-    document = {
-        "title": data["title"],
-        "provider": data["provider"],
-        "amount": data.get("amount"),
-        "amountType": data.get("amountType"),
-        "deadline": data.get("deadline"),
-        "minCGPA": data.get("minCGPA"),
-        "maxIncome": data.get("maxIncome"),
-        "courseRestriction": data.get("courseRestriction"),
-        "categoryRestriction": data.get("categoryRestriction"),
-        "yearRestriction": data.get("yearRestriction"),
-        "applyLink": data.get("applyLink"),
-        "description": data.get("description"),
-        "location": "Pan-India",  # Default location
-        "tags": [],  # Default empty tags
-    }
-
-    collection.insert_one(document)
-    print("✅ Scholarship inserted successfully!")
-    return True
+<file path="ai_pipeline/requirements.txt">
+pymongo
+python-dotenv
+requests
+pymupdf
+pytesseract
+pillow
+openai
 </file>
 
 <file path="ai_pipeline/validator.py">
@@ -3653,6 +4308,167 @@ const Scholarship: Model<IScholarship> =
 export default Scholarship;
 </file>
 
+<file path="ai_pipeline/db.py">
+import re
+import logging
+from pymongo import MongoClient, UpdateOne
+from pymongo.errors import DuplicateKeyError
+from config import MONGO_URI
+
+client = MongoClient(MONGO_URI)
+db = client["Data"]
+collection = db["scholarships"]
+processed_collection = db["processed_pdfs"]  # tracks which PDFs have been ingested
+
+logger = logging.getLogger(__name__)
+
+
+# ── Title normalization ──────────────────────────────────────────────────────
+def _normalize(text: str) -> str:
+    """
+    Canonical form for deduplication:
+    lowercase, collapse whitespace, strip punctuation used as separators.
+    'Merit-cum-Means Scholarship _Normal' → 'merit cum means scholarship normal'
+    """
+    if not text:
+        return ""
+    text = text.lower()
+    text = re.sub(r"[_\-–—/\\|,.()\[\]{}]", " ", text)  # separators → space
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+# ── PDF-level idempotency ────────────────────────────────────────────────────
+def is_pdf_already_processed(filename: str) -> bool:
+    return processed_collection.find_one({"filename": filename}) is not None
+
+
+def mark_pdf_as_processed(filename: str, inserted_count: int) -> None:
+    processed_collection.update_one(
+        {"filename": filename},
+        {"$set": {"filename": filename, "insertedCount": inserted_count}},
+        upsert=True,
+    )
+
+
+# ── Core insert ──────────────────────────────────────────────────────────────
+def insert_if_not_exists(data: dict, pdf_filename: str = None) -> bool:
+    """
+    Insert a scholarship if no near-duplicate exists.
+    Deduplication uses normalized title + normalized provider (case/punct insensitive).
+    Returns True if inserted, False if skipped.
+    """
+    raw_title = (data.get("title") or "").strip()
+    raw_provider = (data.get("provider") or "").strip()
+
+    if not raw_title or not raw_provider:
+        logger.warning("Skipped: missing title or provider")
+        print("⚠  Skipped: missing title or provider")
+        return False
+
+    norm_title = _normalize(raw_title)
+    norm_provider = _normalize(raw_provider)
+
+    # Check for existing doc using normalized keys stored on each document
+    existing = collection.find_one({
+        "normTitle": norm_title,
+        "normProvider": norm_provider,
+    })
+
+    if existing:
+        # Opportunistically backfill sourcePdf if missing
+        if pdf_filename and not existing.get("sourcePdf"):
+            collection.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"sourcePdf": pdf_filename}}
+            )
+            print(f"🔗 Linked PDF to existing: '{raw_title}'")
+        else:
+            print(f"⚠  Duplicate skipped: '{raw_title}'")
+        return False
+
+    document = {
+        # ── Searchable / display fields ──
+        "title":               raw_title,
+        "provider":            raw_provider,
+        # ── Normalized keys for dedup ──
+        "normTitle":           norm_title,
+        "normProvider":        norm_provider,
+        # ── Scholarship data ──
+        "amount":              data.get("amount"),
+        "amountType":          data.get("amountType"),
+        "deadline":            data.get("deadline"),
+        "minCGPA":             data.get("minCGPA"),
+        "maxIncome":           data.get("maxIncome"),
+        "courseRestriction":   data.get("courseRestriction"),
+        "categoryRestriction": data.get("categoryRestriction"),
+        "yearRestriction":     data.get("yearRestriction"),
+        "applyLink":           data.get("applyLink"),
+        "description":         data.get("description"),
+        "location":            "Pan-India",
+        "tags":                [],
+        "sourcePdf":           pdf_filename,
+    }
+
+    try:
+        collection.insert_one(document)
+        logger.info(f"Inserted scholarship: {raw_title}")
+        print(f"✅ Inserted: '{raw_title}' by {raw_provider}")
+        return True
+    except DuplicateKeyError:
+        print(f"⚠  Race-condition duplicate skipped: '{raw_title}'")
+        return False
+
+
+# ── One-time migration: backfill normTitle/normProvider on existing docs ─────
+def backfill_norm_fields() -> int:
+    """
+    Run once to add normTitle/normProvider to documents that predate this schema.
+    Safe to re-run (idempotent).
+    """
+    updated = 0
+    for doc in collection.find({"normTitle": {"$exists": False}}):
+        collection.update_one(
+            {"_id": doc["_id"]},
+            {"$set": {
+                "normTitle":    _normalize(doc.get("title", "")),
+                "normProvider": _normalize(doc.get("provider", "")),
+            }}
+        )
+        updated += 1
+    if updated:
+        print(f"🔧 Backfilled normTitle/normProvider on {updated} documents")
+    return updated
+
+
+# ── Duplicate cleanup: remove exact-title dupes created before this fix ──────
+def deduplicate_existing() -> int:
+    """
+    Find all (normTitle, normProvider) groups with >1 document.
+    Keep the most complete one (has sourcePdf and/or description), delete the rest.
+    Returns number of documents removed.
+    """
+    pipeline = [
+        {"$group": {
+            "_id": {"normTitle": "$normTitle", "normProvider": "$normProvider"},
+            "ids": {"$push": "$_id"},
+            "count": {"$sum": 1}
+        }},
+        {"$match": {"count": {"$gt": 1}}}
+    ]
+
+    removed = 0
+    for group in collection.aggregate(pipeline):
+        ids = group["ids"]
+        # Keep the first id, delete the rest
+        to_delete = ids[1:]
+        collection.delete_many({"_id": {"$in": to_delete}})
+        removed += len(to_delete)
+        print(f"🗑  Removed {len(to_delete)} duplicate(s) of '{group['_id']['normTitle']}'")
+
+    return removed
+</file>
+
 <file path="package.json">
 {
   "name": "scholar-practice",
@@ -3662,7 +4478,8 @@ export default Scholarship;
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "kill": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue).OwningProcess -Force -ErrorAction SilentlyContinue; Remove-Item -Path '.next/dev/lock' -Force -ErrorAction SilentlyContinue; Write-Host 'Port 3000 cleared'\""
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.4",
@@ -3670,10 +4487,12 @@ export default Scholarship;
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.9.0",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.34.3",
     "lucide-react": "^0.564.0",
     "mongoose": "^9.2.1",
     "next": "16.1.6",
     "openai": "^6.22.0",
+    "pdf-parse": "1.1.1",
     "pdf2pic": "^2.1.4",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
@@ -3694,232 +4513,6 @@ export default Scholarship;
     "typescript": "^5"
   }
 }
-</file>
-
-<file path="ai_pipeline/extract_and_insert.py">
-import os
-import logging
-from gemini_client import call_gemini
-from validator import validate_data
-from db import insert_if_not_exists
-import time
-import json
-import fitz  # PyMuPDF for better PDF handling
-import re
-import pytesseract
-from PIL import Image
-import io
-
-logging.basicConfig(
-    filename="logs/pipeline.log",
-    level=logging.INFO
-)
-
-def extract_text_from_pdf(path):
-    """
-    Extract structured text from PDF using PyMuPDF with OCR fallback.
-    Preserves table structure and document layout better than basic text extraction.
-    
-    Args:
-        path (str): Path to PDF file
-    
-    Returns:
-        str: Structured text content with tables preserved in markdown format
-    """
-    try:
-        print(f"📄 Processing PDF with enhanced extraction: {os.path.basename(path)}")
-        
-        # Open PDF with PyMuPDF
-        doc = fitz.open(path)
-        structured_text = ""
-        
-        for page_num in range(len(doc)):
-            page = doc[page_num]
-            
-            # First try regular text extraction
-            text_blocks = page.get_text()
-            
-            if text_blocks.strip():
-                # Get text blocks with their positions for better structure
-                blocks = page.get_text("dict")["blocks"]
-                page_text = ""
-                
-                for block in blocks:
-                    if "lines" in block:
-                        for line in block["lines"]:
-                            line_text = ""
-                            for span in line["spans"]:
-                                line_text += span["text"]
-                            
-                            # Check if this might be a table row
-                            if len(line["spans"]) > 2 and abs(line["bbox"][1] - line["bbox"][3]) < 20:
-                                cells = [span["text"].strip() for span in line["spans"]]
-                                if any("|" in cell or "\t" in cell for cell in cells):
-                                    page_text += "| " + " | ".join(cells) + " |\n"
-                                else:
-                                    page_text += line_text + "\n"
-                            else:
-                                page_text += line_text + "\n"
-                
-                structured_text += f"\n--- Page {page_num + 1} ---\n"
-                structured_text += page_text + "\n"
-            else:
-                # No text found, use OCR
-                print(f"🔍 Page {page_num + 1} requires OCR...")
-                
-                # Get page as image
-                pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))  # Higher resolution
-                img_data = pix.tobytes("png")
-                img = Image.open(io.BytesIO(img_data))
-                
-                # Perform OCR
-                ocr_text = pytesseract.image_to_string(img)
-                
-                if ocr_text.strip():
-                    structured_text += f"\n--- Page {page_num + 1} (OCR) ---\n"
-                    structured_text += ocr_text + "\n"
-                else:
-                    structured_text += f"\n--- Page {page_num + 1} ---\n[No text found in OCR]\n"
-        
-        doc.close()
-        
-        if not structured_text or len(structured_text.strip()) < 20:
-            raise ValueError("PDF contains insufficient readable content")
-        
-        print(f"✅ Successfully extracted {len(structured_text)} characters with enhanced structure")
-        return structured_text
-        
-    except Exception as e:
-        # Handle various PDF-related errors
-        error_msg = str(e).lower()
-        if "encrypted" in error_msg or "password" in error_msg:
-            raise ValueError(f"PDF is encrypted or password-protected: {path}")
-        elif "corrupted" in error_msg or "invalid" in error_msg or "damaged" in error_msg:
-            raise ValueError(f"PDF file is corrupted or damaged: {path}")
-        elif "permission" in error_msg or "access" in error_msg:
-            raise ValueError(f"Insufficient permissions to read PDF: {path}")
-        elif "not found" in error_msg or "does not exist" in error_msg:
-            raise FileNotFoundError(f"PDF file not found: {path}")
-        else:
-            logging.error(f"PDF extraction error for {path}: {str(e)}")
-            raise ValueError(f"Failed to extract text from PDF: {str(e)}")
-
-
-
-
-def process_text(text, pdf_filename):
-    """
-    Process structured text (with tables) to extract scholarship information.
-    
-    Args:
-        text (str): Structured text content from PDF with enhanced formatting
-        pdf_filename (str): Name of the source PDF file
-    """
-    prompt = """You are an exhaustive data extraction engine. Scan the entire document from start to finish. If the document contains a list or table of multiple scholarship schemes (e.g., NSP schemes or university lists), you must create a separate JSON object for EVERY entry found. DO NOT truncate the list. If there are 20 scholarships, return 20 objects.
-
-CRITICAL EXTRACTION RULES:
-1. Return ONLY a JSON array of scholarships - NO EXPLANATIONS
-2. NEVER guess values - if not clearly found, use null
-3. Create a separate JSON object for EVERY scholarship entry found
-4. DO NOT truncate or summarize - extract ALL entries
-5. Convert percentages to CGPA out of 10 (75% → 7.5)
-6. Extract numeric values only (remove currency symbols, commas)
-7. Dates must be in YYYY-MM-DD format
-8. URLs must start with http
-9. Keep descriptions to 2-3 sentences
-
-TABLE COLUMN MAPPING:
-- For NSP-style tables: Each row/scheme = separate scholarship object
-- Map columns accurately: Scheme Name → title, Department → provider, Amount → amount, etc.
-- Sub-schemes under departments should be individual scholarship entries
-- If table has columns like "Scheme Name", "Eligibility", "Amount", "Deadline", map each to corresponding fields
-- Treat each department's sub-scheme as a unique scholarship entry
-
-FIELD SPECIFICATIONS:
-- title: Exact scholarship name (from scheme name column)
-- provider: Institution/organization name (from department/ministry column)
-- amount: Numeric value only, null if not specified
-- amountType: "CASH" for monetary awards, "WAIVER" for tuition waivers
-- deadline: YYYY-MM-DD format, null if not found
-- minCGPA: 0-10 scale, convert from percentage if needed
-- maxIncome: Numeric family income limit, null if not specified
-- courseRestriction: e.g., "BE/BTech", "MBA", etc.
-- categoryRestriction: e.g., "SC/ST", "General", etc.
-- yearRestriction: e.g., "1st year", "2nd-4th year", etc.
-- applyLink: Full URL starting with http, null if not found
-- description: Clean 2-3 sentence summary
-
-EXHAUSTIVE EXTRACTION COMMAND:
-SCAN EVERY PAGE, EVERY TABLE, EVERY LIST. Create individual JSON objects for ALL scholarship entries found. If you find 50 scholarships in a table, return 50 JSON objects. Do not stop early, do not summarize, do not truncate.
-
-RETURN FORMAT:
-[
-  {
-    "title": "",
-    "provider": "",
-    "amount": null,
-    "amountType": null,
-    "deadline": null,
-    "minCGPA": null,
-    "maxIncome": null,
-    "courseRestriction": null,
-    "categoryRestriction": null,
-    "yearRestriction": null,
-    "applyLink": null,
-    "description": null
-  }
-]
-
-STRUCTURED TEXT TO ANALYZE:
-""" + text
-
-    try:
-        response = call_gemini(prompt, use_json_mode=True)
-    except Exception as e:
-        print("Gemini error:", e)
-        return
-
-    try:
-        # Since we're using JSON mode, the response should be valid JSON
-        data_list = json.loads(response)
-        for data in data_list:
-            validated = validate_data(data)
-            success = insert_if_not_exists(validated, pdf_filename)
-            if success:
-                logging.info(f"Inserted scholarship: {validated['title']}")
-            time.sleep(5)
-
-    except json.JSONDecodeError as e:
-        logging.error(f"JSON parsing error: {str(e)}")
-        print(f"JSON parsing error: {str(e)}")
-        return
-    except Exception as e:
-        logging.error(f"Processing error: {str(e)}")
-        print(f"Processing error: {str(e)}")
-        return
-
-def main():
-    folder = "pdfs"
-
-    for file in os.listdir(folder):
-        if file.endswith(".pdf"):
-            print(f"Processing {file}...")
-            file_path = os.path.join(folder, file)
-
-            try:
-                text = extract_text_from_pdf(file_path)
-                process_text(text, file)
-                print(f"✅ Successfully processed: {file}")
-            except ValueError as ve:
-                logging.error(f"Value error processing {file}: {str(ve)}")
-                print(f"❌ Failed: {file} - {str(ve)}")
-            except Exception as e:
-                logging.error(f"Error processing {file}: {str(e)}")
-                print(f"❌ Failed: {file} - {str(e)}")
-
-
-if __name__ == "__main__":
-    main()
 </file>
 
 <file path=".gitignore">
@@ -3974,10 +4567,322 @@ logs/
 __pycache__/
 </file>
 
+<file path="ai_pipeline/extract_and_insert.py">
+import os
+import sys
+import argparse
+import logging
+import json
+import re
+import io
+import fitz          # PyMuPDF
+import pytesseract
+from PIL import Image
+
+from megallm_client import call_megallm
+from validator import validate_data
+from db import (
+    insert_if_not_exists,
+    is_pdf_already_processed,
+    mark_pdf_as_processed,
+    backfill_norm_fields,
+    deduplicate_existing,
+)
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    filename="logs/pipeline.log",
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+# ── PDF Text Extraction ──────────────────────────────────────────────────────
+def extract_text_from_pdf(path: str) -> str:
+    """
+    Extract structured text from a PDF using PyMuPDF with per-page OCR fallback.
+    Returns text with page separators preserved for the LLM.
+    """
+    print(f"📄 Extracting: {os.path.basename(path)}")
+    doc = fitz.open(path)
+    structured_text = ""
+
+    for page_num in range(len(doc)):
+        page = doc[page_num]
+        raw_text = page.get_text()
+
+        if raw_text.strip():
+            blocks = page.get_text("dict")["blocks"]
+            page_text = ""
+            for block in blocks:
+                if "lines" in block:
+                    for line in block["lines"]:
+                        line_text = "".join(span["text"] for span in line["spans"])
+                        # Detect possible table row (many spans, small height)
+                        if len(line["spans"]) > 2 and abs(line["bbox"][1] - line["bbox"][3]) < 20:
+                            cells = [s["text"].strip() for s in line["spans"]]
+                            if any("|" in c or "\t" in c for c in cells):
+                                page_text += "| " + " | ".join(cells) + " |\n"
+                                continue
+                        page_text += line_text + "\n"
+            structured_text += f"\n--- Page {page_num + 1} ---\n{page_text}\n"
+        else:
+            print(f"  🔍 Page {page_num + 1}: OCR fallback")
+            pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
+            img = Image.open(io.BytesIO(pix.tobytes("png")))
+            ocr_text = pytesseract.image_to_string(img)
+            label = "(OCR)" if ocr_text.strip() else ""
+            content = ocr_text if ocr_text.strip() else "[No readable text]"
+            structured_text += f"\n--- Page {page_num + 1} {label} ---\n{content}\n"
+
+    doc.close()
+
+    char_count = len(structured_text.strip())
+    if char_count < 20:
+        raise ValueError(f"PDF contains insufficient readable content ({char_count} chars)")
+
+    print(f"  ✅ Extracted {char_count:,} characters")
+    return structured_text
+
+
+# ── LLM Extraction Prompt ────────────────────────────────────────────────────
+EXTRACTION_PROMPT = """\
+You are an exhaustive scholarship data extraction engine.
+
+MISSION: Extract EVERY SINGLE scholarship from this document — tables, lists, paragraphs. \
+If a table has 30 rows, produce 30 JSON objects. Never truncate. Never summarize.
+
+CRITICAL RULES:
+1. Output ONLY a raw JSON array — no markdown, no explanation, no preamble
+2. One JSON object per scholarship/scheme entry
+3. Never guess — use null for any field not explicitly stated
+4. amounts: numeric only (strip ₹, commas, "per annum")
+5. Convert % CGPA to 10-point scale (75% → 7.5)
+6. deadline: YYYY-MM-DD format only, or null
+7. applyLink: must start with http, or null
+8. description: 2-3 sentences max
+
+TABLE PARSING RULES:
+- NSP-style tables: each row = one scholarship object
+- "Scheme Name" column → title
+- "Department / Ministry" column → provider
+- Sub-schemes under a department = individual entries
+
+REQUIRED OUTPUT FORMAT (array of objects):
+[
+  {
+    "title": "Exact scheme name",
+    "provider": "Ministry or institution name",
+    "amount": 50000,
+    "amountType": "CASH",
+    "deadline": "2025-10-31",
+    "minCGPA": 6.0,
+    "maxIncome": 250000,
+    "courseRestriction": "BE/BTech",
+    "categoryRestriction": "SC/ST",
+    "yearRestriction": "1st year",
+    "applyLink": "https://scholarships.gov.in",
+    "description": "Brief 2-3 sentence summary."
+  }
+]
+
+START your response with [ and END with ]. No other text.
+
+DOCUMENT TEXT:
+"""
+
+
+# ── Core Processing ──────────────────────────────────────────────────────────
+def process_pdf(pdf_path: str, pdf_filename: str) -> int:
+    """
+    Extract text → call LLM → validate → insert.
+    Returns number of new scholarships inserted.
+    """
+    try:
+        text = extract_text_from_pdf(pdf_path)
+    except (ValueError, FileNotFoundError) as e:
+        logger.error(f"Extraction failed [{pdf_filename}]: {e}")
+        print(f"  ❌ Extraction failed: {e}")
+        return 0
+
+    prompt = EXTRACTION_PROMPT + text
+
+    try:
+        response = call_megallm(prompt, use_json_mode=True)
+    except Exception as e:
+        logger.error(f"LLM call failed [{pdf_filename}]: {e}")
+        print(f"  ❌ LLM error: {e}")
+        return 0
+
+    # ── Parse JSON ───────────────────────────────────────────────────────────
+    try:
+        parsed = json.loads(response)
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parse failed [{pdf_filename}]: {e}\nRaw: {response[:300]}")
+        print(f"  ❌ JSON parse error: {e}")
+        return 0
+
+    # Normalise: handle wrapped dict {"scholarships": [...]} or bare list
+    if isinstance(parsed, dict):
+        data_list = next(
+            (v for v in parsed.values() if isinstance(v, list)),
+            [parsed]  # single scholarship as dict
+        )
+    elif isinstance(parsed, list):
+        data_list = parsed
+    else:
+        logger.error(f"Unexpected JSON root type [{pdf_filename}]: {type(parsed)}")
+        print(f"  ❌ Unexpected JSON type: {type(parsed)}")
+        return 0
+
+    print(f"  📊 LLM found {len(data_list)} scholarship entries")
+
+    # ── Validate & Insert ─────────────────────────────────────────────────────
+    inserted = 0
+    for entry in data_list:
+        if not isinstance(entry, dict):
+            print(f"  ⚠  Skipped non-dict entry: {type(entry)}")
+            continue
+        try:
+            validated = validate_data(entry)
+            if insert_if_not_exists(validated, pdf_filename):
+                inserted += 1
+        except ValueError as ve:
+            print(f"  ⚠  Validation failed: {ve}")
+        except Exception as e:
+            logger.error(f"Insert error [{pdf_filename}]: {e}")
+            print(f"  ⚠  Insert error: {e}")
+
+    print(f"  💾 Inserted {inserted}/{len(data_list)} new scholarships")
+    return inserted
+
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+def main():
+    pdf_folder = "pdfs"
+
+    # ── One-time migrations (safe to run on every startup) ───────────────────
+    print("🔧 Running DB maintenance...")
+    backfill_norm_fields()
+    removed = deduplicate_existing()
+    if removed:
+        print(f"🗑  Cleaned {removed} duplicate documents from DB")
+    print()
+
+    # ── Process PDFs ─────────────────────────────────────────────────────────
+    pdf_files = sorted(f for f in os.listdir(pdf_folder) if f.lower().endswith(".pdf"))
+
+    if not pdf_files:
+        print("📁 No PDF files found in pdfs/ folder.")
+        return
+
+    print(f"📁 Found {len(pdf_files)} PDF(s) to check\n")
+    total_inserted = 0
+
+    for filename in pdf_files:
+        pdf_path = os.path.join(pdf_folder, filename)
+
+        # ── Skip already-processed PDFs ──────────────────────────────────────
+        if is_pdf_already_processed(filename):
+            print(f"⏭  Already processed: {filename}")
+            continue
+
+        print(f"{'='*60}")
+        print(f"📂 Processing: {filename}")
+
+        inserted = process_pdf(pdf_path, filename)
+        total_inserted += inserted
+
+        # Mark as done regardless of insert count (0 inserts = all duplicates)
+        mark_pdf_as_processed(filename, inserted)
+        print(f"✅ Done: {filename}\n")
+
+    print(f"{'='*60}")
+    print(f"🏁 Pipeline complete. Total new scholarships inserted: {total_inserted}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Scholarship PDF pipeline")
+    parser.add_argument("--file", type=str, help="Path to a single PDF to process (outputs JSON to stdout)")
+    args = parser.parse_args()
+
+    if args.file:
+        # ── Single-file mode: used by the Next.js API route ──────────────────
+        pdf_path = args.file
+        pdf_filename = os.path.basename(pdf_path)
+        errors: list[str] = []
+        inserted = 0
+        skipped = 0
+
+        try:
+            text = extract_text_from_pdf(pdf_path)
+            prompt = EXTRACTION_PROMPT + text
+
+            try:
+                response = call_megallm(prompt, use_json_mode=True)
+            except Exception as e:
+                raise RuntimeError(f"LLM call failed: {e}")
+
+            try:
+                parsed = json.loads(response)
+            except json.JSONDecodeError as e:
+                raise RuntimeError(f"JSON parse error: {e}")
+
+            if isinstance(parsed, dict):
+                data_list = next((v for v in parsed.values() if isinstance(v, list)), [parsed])
+            elif isinstance(parsed, list):
+                data_list = parsed
+            else:
+                raise RuntimeError(f"Unexpected JSON root type: {type(parsed)}")
+
+            for entry in data_list:
+                if not isinstance(entry, dict):
+                    skipped += 1
+                    errors.append(f"Non-dict entry skipped: {type(entry)}")
+                    continue
+                try:
+                    validated = validate_data(entry)
+                    if insert_if_not_exists(validated, pdf_filename):
+                        inserted += 1
+                    else:
+                        skipped += 1
+                except ValueError as ve:
+                    skipped += 1
+                    errors.append(str(ve))
+                except Exception as e:
+                    skipped += 1
+                    errors.append(str(e))
+
+            # Mark PDF as processed
+            mark_pdf_as_processed(pdf_filename, inserted)
+
+            result = {
+                "success": True,
+                "insertedCount": inserted,
+                "skippedCount": skipped,
+                "errors": errors,
+            }
+        except Exception as e:
+            result = {
+                "success": False,
+                "insertedCount": 0,
+                "skippedCount": 0,
+                "errors": [str(e)],
+            }
+
+        # Write ONLY the JSON to stdout — no other print() output should reach stdout
+        sys.stdout.write(json.dumps(result) + "\n")
+        sys.exit(0)
+    else:
+        main()
+</file>
+
 <file path="components/ScholarshipCard.tsx">
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { CheckCircle, XCircle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -4008,6 +4913,7 @@ interface ScholarshipCardProps {
   maxIncome?: number;
   sourcePdf?: string;
   isSavedInitial?: boolean;
+  isEligible?: boolean;
 }
 
 export function ScholarshipCard({
@@ -4026,6 +4932,7 @@ export function ScholarshipCard({
   maxIncome,
   sourcePdf,
   isSavedInitial = false,
+  isEligible,
 }: ScholarshipCardProps) {
   const [isSaved, setIsSaved] = useState(isSavedInitial);
   const [isPending, startTransition] = useTransition();
@@ -4076,8 +4983,31 @@ export function ScholarshipCard({
   };
 
   return (
-    <Card className="w-full max-w-md hover:shadow-lg transition-all border-l-4 border-l-blue-600 flex flex-col justify-between relative">
+    <Card className={cn(
+      "w-full max-w-md transition-all border-l-4 flex flex-col justify-between relative overflow-hidden",
+      "hover:shadow-xl hover:-translate-y-0.5 duration-200",
+      isEligible === false
+        ? "border-l-slate-300 opacity-75"
+        : "border-l-blue-600"
+    )}>
       <div>
+        {/* Eligibility pill — absolute, top-left corner */}
+        {isEligible !== undefined && (
+          <div
+            className={cn(
+              "absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold shadow-sm border",
+              isEligible
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-red-50 text-red-600 border-red-200"
+            )}
+          >
+            {isEligible
+              ? <CheckCircle className="w-3 h-3 flex-shrink-0" />
+              : <XCircle className="w-3 h-3 flex-shrink-0" />}
+            {isEligible ? "Eligible" : "Not Eligible"}
+          </div>
+        )}
+
         <CardHeader className="pb-2">
           {/* Heart/Save — absolute so it never displaces other elements */}
           <button
@@ -4099,8 +5029,8 @@ export function ScholarshipCard({
             />
           </button>
 
-          {/* Provider + Title — padded right so it doesn't run under the heart */}
-          <div className="pr-10">
+          {/* Provider + Title — padded on both sides: left for badge, right for heart */}
+          <div className={cn("pr-10", isEligible !== undefined ? "pl-1 pt-5" : "")}>
             <p className="text-sm text-muted-foreground font-medium mb-1">
               {provider}
             </p>
@@ -4197,154 +5127,152 @@ export function ScholarshipCard({
 </file>
 
 <file path="app/page.tsx">
-import { connectToDatabase } from "@/lib/db";
-import Scholarship from "@/models/Scholarship";
-import Application from "@/models/Application";
-import User from "@/models/User";
-import { currentUser } from "@clerk/nextjs/server";
-import { ScholarshipCard } from "@/components/ScholarshipCard";
-import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import Link from "next/link";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 
-// 1. Define Types (So TypeScript stops yelling)
-interface UserProfile {
-  name: string;
-  cgpa: number;
-}
-
-interface ScholarshipData {
-  _id: string; // MongoDB always returns _id as string after conversion
-  title: string;
-  provider: string;
-  amount?: number;
-  amountType?: "CASH" | "WAIVER";
-  deadline?: Date;
-  description?: string;
-  minCGPA?: number;
-  maxIncome?: number;
-  courseRestriction?: string;
-  categoryRestriction?: string;
-  yearRestriction?: string;
-  applyLink?: string;
-  location?: string;
-  educationLevel?: string;
-  sourcePdf?: string; // New field for source PDF
-}
-
-export default async function Home() {
-  // 2. Connect to DB
-  await connectToDatabase();
-
-  // 3. Get the current logged-in user from Clerk
-  const clerkUser = await currentUser();
-
-  // 4. Fetch ALL Scholarships and convert ObjectId to string
-  const rawScholarships = await Scholarship.find({}).sort({ createdAt: -1 }).lean();
-  const allScholarships: ScholarshipData[] = rawScholarships.map(scholarship => ({
-    ...scholarship,
-    _id: scholarship._id.toString(),
-    deadline: scholarship.deadline ? new Date(scholarship.deadline) : undefined,
-  }));
-
-  // 5. Default: Show everything, track saved IDs
-  let validScholarships: ScholarshipData[] = allScholarships;
-  let userProfile: UserProfile | null = null;
-  let savedScholarshipIds = new Set<string>();
-
-  // 6. The "Matching Logic" + fetch saved scholarships
-  if (clerkUser) {
-    const [user, savedApplications] = await Promise.all([
-      User.findOne({ clerkId: clerkUser.id }).lean(),
-      Application.find({ clerkId: clerkUser.id, status: "Saved" }).lean(),
-    ]);
-
-    // Build a Set of saved scholarship IDs for O(1) lookup
-    savedScholarshipIds = new Set(
-      savedApplications.map((app) => app.scholarshipId.toString())
-    );
-
-    if (user) {
-      userProfile = user as unknown as UserProfile;
-
-      // FILTER: Only show eligible scholarships
-      validScholarships = allScholarships.filter((scholarship) => {
-        const requiredCGPA = scholarship.minCGPA || 0;
-        return userProfile!.cgpa >= requiredCGPA;
-      });
-    }
-  }
-
+export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      {/* Navbar Area */}
-      <nav className="flex justify-between items-center mb-12">
-        <h1 className="text-3xl font-bold text-blue-900">
-          scholar<span className="text-blue-600">Logic</span>
-        </h1>
-        <div className="flex gap-4 items-center">
-          <Link href="/dashboard" className="text-sm font-medium hover:underline">
-            My Dashboard
-          </Link>
+    <main className="min-h-screen bg-[#050810] text-white flex flex-col overflow-hidden">
+
+      {/* ── Background ambient glows ── */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full bg-blue-600/10 blur-[120px]" />
+        <div className="absolute bottom-[-80px] left-[10%] w-[500px] h-[400px] rounded-full bg-indigo-700/8 blur-[100px]" />
+        <div className="absolute top-[40%] right-[-100px] w-[400px] h-[400px] rounded-full bg-sky-500/8 blur-[80px]" />
+      </div>
+
+      {/* ── Navbar ── */}
+      <nav className="relative z-10 flex items-center justify-between px-8 md:px-16 py-5 border-b border-white/[0.06] backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-xs font-black shadow-lg shadow-blue-500/30">
+            S
+          </div>
+          <span className="text-lg font-bold tracking-tight">
+            scholar<span className="text-blue-400">Logic</span>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
           <SignedOut>
             <SignInButton mode="modal">
-              <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+              <button className="text-sm text-slate-400 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/5">
                 Sign In
+              </button>
+            </SignInButton>
+            <SignInButton mode="modal">
+              <button className="text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg transition-all hover:shadow-lg hover:shadow-blue-500/25">
+                Get Started
               </button>
             </SignInButton>
           </SignedOut>
           <SignedIn>
+            <Link
+              href="/home"
+              className="text-sm text-slate-400 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/5"
+            >
+              Dashboard
+            </Link>
             <UserButton />
           </SignedIn>
         </div>
       </nav>
 
-      {/* Welcome Message */}
-      <div className="mb-8">
-        {userProfile ? (
-          <div className="bg-green-100 border border-green-300 p-4 rounded-xl text-green-800">
-            <p className="font-bold">Welcome back, {userProfile.name || "Student"}! 👋</p>
-            <p className="text-sm">
-              Based on your profile (CGPA: <strong>{userProfile.cgpa}</strong>),
-              we found <strong>{validScholarships.length}</strong> eligible scholarships for you.
-            </p>
-          </div>
-        ) : (
-          <div className="text-gray-600">
-            <p>Find the financial aid you deserve. Sign in to get personalized matches.</p>
-          </div>
-        )}
-      </div>
+      {/* ── Hero ── */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 py-24">
 
-      {/* The Grid */}
-      {validScholarships.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {validScholarships.map((scholarship) => (
-            <ScholarshipCard
-              key={scholarship._id.toString()}
-              id={scholarship._id.toString()}
-              title={scholarship.title}
-              provider={scholarship.provider}
-              amount={scholarship.amount}
-              amountType={scholarship.amountType}
-              location={scholarship.location}
-              deadline={scholarship.deadline}
-              tags={(scholarship as any).tags}
-              courseRestriction={scholarship.courseRestriction}
-              categoryRestriction={scholarship.categoryRestriction}
-              yearRestriction={scholarship.yearRestriction}
-              minCGPA={scholarship.minCGPA}
-              maxIncome={scholarship.maxIncome}
-              sourcePdf={scholarship.sourcePdf}
-              isSavedInitial={savedScholarshipIds.has(scholarship._id.toString())}
-            />
+        {/* Pill badge */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-300 text-xs font-medium mb-8 backdrop-blur-sm">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-400" />
+          </span>
+          AI-Powered · Personalised · Free to Use
+        </div>
+
+        {/* Headline */}
+        <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-[1.05] max-w-4xl mb-6">
+          Stop Searching.<br />
+          <span className="bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-400 bg-clip-text text-transparent">
+            Start Winning.
+          </span>
+        </h1>
+
+        {/* Subtitle */}
+        <p className="text-slate-400 text-lg md:text-xl max-w-2xl leading-relaxed mb-10">
+          ScholarLogic reads your academic profile and instantly surfaces every scholarship you actually qualify for —
+          no irrelevant results, no wasted hours.
+        </p>
+
+        {/* CTAs */}
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-20">
+          <Link
+            href="/home"
+            className="group relative inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3.5 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-blue-500/30 text-sm"
+          >
+            Explore Scholarships
+            <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+          </Link>
+          <Link
+            href="/home"
+            className="inline-flex items-center gap-2 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/8 text-slate-300 hover:text-white font-medium px-6 py-3.5 rounded-xl transition-all duration-200 text-sm backdrop-blur-sm"
+          >
+            See How It Works
+          </Link>
+        </div>
+
+        {/* Stats */}
+        <div className="flex flex-wrap items-center justify-center gap-12 md:gap-20">
+          {[
+            { value: "10,000+", label: "Scholarships Listed" },
+            { value: "₹50Cr+", label: "Funding Distributed" },
+            { value: "98%", label: "Match Accuracy" },
+          ].map((stat) => (
+            <div key={stat.label} className="text-center">
+              <div className="text-3xl md:text-4xl font-black bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
+                {stat.value}
+              </div>
+              <div className="text-xs text-slate-500 mt-1.5 tracking-wide uppercase">
+                {stat.label}
+              </div>
+            </div>
           ))}
         </div>
-      ) : (
-        <div className="text-center py-20">
-          <p className="text-xl text-gray-500">No scholarships match your profile yet. 😔</p>
-          <p className="text-sm text-gray-400 mt-2">Try updating your profile or check back later!</p>
+      </div>
+
+      {/* ── Feature strip ── */}
+      <div className="relative z-10 border-t border-white/[0.06] bg-white/[0.02] backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            {
+              icon: "🎯",
+              title: "Precision Matching",
+              desc: "We check your CGPA, income, course, and category against every scholarship — you see only what you can win.",
+            },
+            {
+              icon: "📄",
+              title: "PDF Intelligence",
+              desc: "Our AI reads scholarship PDFs and extracts eligibility criteria automatically — no manual data entry.",
+            },
+            {
+              icon: "⚡",
+              title: "Instant Results",
+              desc: "Complete your profile once and get a personalised, ranked list of scholarships in seconds.",
+            },
+          ].map((feature) => (
+            <div key={feature.title} className="flex flex-col gap-3">
+              <span className="text-2xl">{feature.icon}</span>
+              <h3 className="font-bold text-white text-sm">{feature.title}</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">{feature.desc}</p>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
+
+      {/* ── Footer ── */}
+      <footer className="relative z-10 text-center py-5 border-t border-white/[0.05] text-xs text-slate-700">
+        © 2026 ScholarLogic · Built for students, powered by AI.
+      </footer>
+
     </main>
   );
 }

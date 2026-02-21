@@ -46,7 +46,7 @@ export default async function ScholarshipDetail({
         
         {/* 🔙 Back Button */}
         <Link
-          href="/"
+          href="/home"
           className="flex items-center text-slate-500 hover:text-slate-800 mb-6"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
