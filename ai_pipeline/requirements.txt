@@ -4,4 +4,4 @@ requests
 pymupdf
 pytesseract
 pillow
-google-genai
+openai

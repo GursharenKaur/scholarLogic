@@ -386,3 +386,97 @@ INFO:root:Inserted scholarship: Reliance Foundation Undergraduate Scholarships 2
 INFO:google_genai.models:AFC is enabled with max remote calls: 10.
 INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
 INFO:root:Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+INFO:openai._base_client:Retrying request to /chat/completions in 4.000000 seconds
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 500 Internal Server Error"
+INFO:openai._base_client:Retrying request to /chat/completions in 0.377421 seconds
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+ERROR:root:Processing error: 'str' object has no attribute 'get'
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+ERROR:root:Processing error: 'str' object has no attribute 'get'
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+ERROR:root:Processing error: 'str' object has no attribute 'get'
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 429 Too Many Requests"
+INFO:openai._base_client:Retrying request to /chat/completions in 8.000000 seconds
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+ERROR:root:Processing error: 'str' object has no attribute 'get'
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 500 Internal Server Error"
+INFO:openai._base_client:Retrying request to /chat/completions in 0.430020 seconds
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+ERROR:root:Processing error: 'str' object has no attribute 'get'
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+ERROR:root:Processing error: 'str' object has no attribute 'get'
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 500 Internal Server Error"
+INFO:openai._base_client:Retrying request to /chat/completions in 0.422920 seconds
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+ERROR:root:Processing error: 'str' object has no attribute 'get'
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+ERROR:root:Processing error: 'str' object has no attribute 'get'
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+ERROR:root:Processing error: 'str' object has no attribute 'get'
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 500 Internal Server Error"
+INFO:openai._base_client:Retrying request to /chat/completions in 0.468707 seconds
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 500 Internal Server Error"
+INFO:openai._base_client:Retrying request to /chat/completions in 0.906680 seconds
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+ERROR:root:Processing error: 'str' object has no attribute 'get'
+INFO:openai._base_client:Retrying request to /chat/completions in 0.398450 seconds
+INFO:openai._base_client:Retrying request to /chat/completions in 0.976060 seconds
+INFO:openai._base_client:Retrying request to /chat/completions in 0.386257 seconds
+INFO:openai._base_client:Retrying request to /chat/completions in 0.801901 seconds
+INFO:openai._base_client:Retrying request to /chat/completions in 0.484432 seconds
+INFO:openai._base_client:Retrying request to /chat/completions in 0.777816 seconds
+INFO:openai._base_client:Retrying request to /chat/completions in 0.396142 seconds
+INFO:openai._base_client:Retrying request to /chat/completions in 0.930276 seconds
+INFO:openai._base_client:Retrying request to /chat/completions in 0.468965 seconds
+INFO:openai._base_client:Retrying request to /chat/completions in 0.754489 seconds
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_Normal
+INFO:root:Inserted scholarship: Merit-cum-Means Scholarship_Special
+INFO:root:Inserted scholarship: Merit-cum-means Scholarship_Lateral entry
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Scholarship For Top Class Education For Students With Disabilities
+INFO:root:Inserted scholarship: Post Matric Scholarship For Students With Disabilities
+INFO:root:Inserted scholarship: Central Sector Scheme Of Scholarships For College And University Students
+INFO:root:Inserted scholarship: National Fellowship And Scholarship For Higher Education Of St Students - Scholarship (Formally Top Class Education For Schedule Tribe Students)
+INFO:root:Inserted scholarship: National Means Cum Merit Scholarship
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Central Armed Police Forces And Assam Rifles
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Wards Of States/Uts Police Personnel Martyred During Terror/Naxal Attacks
+INFO:root:Inserted scholarship: Prime Minister'S Scholarship Scheme For Ministry Of Railways
+INFO:root:Inserted scholarship: National Scholarship For Post Graduate Studies
+INFO:root:Inserted scholarship: Ishan Uday Special Scholarship Scheme For Ner
+INFO:root:Inserted scholarship: Financial Support To The Students Of Ner For Higher Professional Courses(Nec Merit Scholarship)
+INFO:root:Inserted scholarship: Central Sector Scholarship Of Top Class Education For Se Students
+INFO:root:Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/lome/Lsdm- Post Matric
+INFO:root:Inserted scholarship: Pm Yasasvi Central Sector Scheme Of Top Class Education In College For Obe, Ebce And Dnt Students
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: PRAGATI Scholarship
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Reliance Foundation Undergraduate Scholarships 2025-26
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: HDFC Badhte Kadam Scholarship 2022-23
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: Ishan Uday Special Scholarship Scheme For NER
+INFO:root:Inserted scholarship: Financial Support To The Students Of NER For Higher Professional Courses(NEC Merit Scholarship)
+INFO:root:Inserted scholarship: Central Sector Scholarship Of Top Class Education For SC Students
+INFO:root:Inserted scholarship: Financial Assistance For Education To The Wards Of Beedi/Cine/Iome/LSDM- Post Matric
+INFO:root:Inserted scholarship: PM Yasasvi Central Sector Scheme Of Top Class Education In College For OBC, EBC And DNT Students
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:root:Inserted scholarship: PRAGATI Scholarship Scheme
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-21 02:34:29,684 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-21 02:35:43,072 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-21 02:35:43,482 INFO Inserted scholarship: Post Matric Scholarships Scheme for Minorities
+2026-02-21 02:35:51,790 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-21 02:35:52,184 INFO Inserted scholarship: PRAGATI Scholarship Scheme - Degree Level
+2026-02-21 02:35:52,364 INFO Inserted scholarship: PRAGATI Scholarship Scheme - Diploma Level
+2026-02-21 02:36:00,038 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-21 02:36:08,777 INFO HTTP Request: POST https://ai.megallm.io/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-21 02:36:09,833 INFO Inserted scholarship: HDFC Badhte Kadam Scholarship
