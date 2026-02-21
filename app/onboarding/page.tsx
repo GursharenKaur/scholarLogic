@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { saveUserProfile, getUserProfile } from "@/actions/user";
+import { saveUserProfile, getUserProfile ,deleteUserProfile } from "@/actions/user";
 import { Upload, FileText, Loader2, CheckCircle, XCircle } from "lucide-react";
+
 
 type DocState = {
   fileName: string;
@@ -117,6 +118,21 @@ export default function OnboardingPage() {
     msg.textContent = '✅ Form auto-filled with extracted data. Please review and edit if needed.';
     document.body.appendChild(msg);
     setTimeout(() => document.body.removeChild(msg), 5000);
+  };
+
+  const handleDelete = async () => {
+    const confirmDelete = window.confirm("Are you sure you want to completely delete your profile and saved scholarships? This action cannot be undone.");
+    if (!confirmDelete) return;
+
+    setIsSubmitting(true);
+    try {
+      await deleteUserProfile();
+      router.push("/home"); // Redirect to home, they will see the amber "Complete Profile" banner again
+    } catch (error) {
+      console.error("Error deleting profile:", error);
+      alert("Failed to delete profile.");
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -484,22 +500,28 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Action Button */}
-          <div className="flex justify-center">
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg shadow-md hover:shadow-lg"
+              className="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg shadow-md hover:shadow-lg w-full sm:w-auto"
               suppressHydrationWarning
             >
               {isSubmitting ? "Saving..." : profile ? "Update Profile" : "Complete Profile & Find Scholarships"}
             </button>
-          </div>
 
-          <div className="text-center mt-4">
-            <p className="text-sm text-gray-500">
-              Your profile information and uploaded documents will be automatically saved.
-            </p>
+            {/* 👇 NEW: Delete Profile Button (Only shows if profile exists) */}
+            {profile && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isSubmitting}
+                className="px-8 py-4 bg-red-50 text-red-600 border border-red-200 font-semibold rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors text-lg w-full sm:w-auto"
+              >
+                Delete Profile
+              </button>
+            )}
           </div>
         </form>
       </div>

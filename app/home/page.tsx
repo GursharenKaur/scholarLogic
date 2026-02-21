@@ -6,6 +6,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { ScholarshipCard } from "@/components/ScholarshipCard";
 import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
+export const dynamic = "force-dynamic";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -160,12 +161,12 @@ export default async function Home() {
             {/* Welcome / Status Banner */}
             <div className="mb-8">
                 {userProfile ? (
-                    <div className="bg-green-100 border border-green-300 p-4 rounded-xl text-green-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div key="banner-green" className="bg-green-100 border border-green-300 p-4 rounded-xl text-green-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <p className="font-bold">
                                 Welcome back, {userProfile.name || "Student"}! 👋
                             </p>
-                            <p className="text-sm mt-1">
+                            <p className="text-sm mt-1 text-green-800">
                                 Based on your profile (CGPA: <strong>{userProfile.cgpa}</strong>
                                 {userProfile.course && <>, Course: <strong>{userProfile.course}</strong></>}
                                 {userProfile.category && <>, Category: <strong>{userProfile.category}</strong></>}
@@ -180,34 +181,38 @@ export default async function Home() {
                             ✏️ Edit Profile
                         </Link>
                     </div>
-                ) : userId ? (
-                    <div className="bg-amber-50 border border-amber-300 p-4 rounded-xl text-amber-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                ) : clerkUser ? (
+                    <div key="banner-amber" className="bg-amber-50 border border-amber-300 p-4 rounded-xl text-amber-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <p className="font-bold text-amber-700">
-                                Welcome! Let's get you set up. 🚀
+                            <p className="font-bold text-amber-800">
+                                Welcome! Let&apos;s get you set up. 🚀
                             </p>
-                            <p className="text-sm mt-1">
-                                You are browsing {scholarships.length} scholarships. Complete your profile so our AI can instantly match you with the ones you actually qualify for!
+                            <p className="text-sm mt-1 text-amber-800">
+                                You are browsing <strong>{scholarships.length}</strong> scholarships. Complete your profile so our AI can instantly match you with the ones you actually qualify for!
                             </p>
                         </div>
                         <Link 
                             href="/onboarding" 
-                            className="bg-amber-500 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-600 transition-colors shrink-0 shadow-sm"
+                            className="bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-700 transition-colors shrink-0 shadow-sm"
                         >
                             ✨ Complete Profile
                         </Link>
                     </div>
                 ) : (
-                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-blue-700">
-                        <p className="font-medium">
-                            🔍 Browsing {scholarships.length} scholarships.{" "}
-                            <SignInButton mode="modal" fallbackRedirectUrl="/home">
-                                <button className="underline font-semibold hover:text-blue-900">
-                                    Sign in
-                                </button>
-                            </SignInButton>{" "}
-                            to see personalised eligibility badges.
-                        </p>
+                    <div key="banner-blue" className="bg-blue-50 border border-blue-300 p-4 rounded-xl text-blue-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <p className="font-bold text-blue-800">
+                                🔍 Discover Your Matches
+                            </p>
+                            <p className="text-sm mt-1 text-blue-800">
+                                You are currently browsing all <strong>{scholarships.length}</strong> scholarships. Sign in and complete your profile to see personalised eligibility badges!
+                            </p>
+                        </div>
+                        <SignInButton mode="modal" fallbackRedirectUrl="/home">
+                            <button className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shrink-0 shadow-sm">
+                                Sign In to Match
+                            </button>
+                        </SignInButton>
                     </div>
                 )}
             </div>

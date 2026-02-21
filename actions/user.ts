@@ -3,6 +3,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { connectToDatabase } from "@/lib/db";
 import User from "@/models/User";
+import Application from "@/models/Application";
 
 export async function saveUserProfile(formData: FormData) {
   // 1. Check if user is logged in
@@ -97,4 +98,19 @@ export async function getUserProfile() {
   
   // Convert MongoDB document to plain JSON so Client Components can read it
   return user ? JSON.parse(JSON.stringify(user)) : null;
+}
+
+export async function deleteUserProfile() {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
+  await connectToDatabase();
+
+  // 1. Delete the user's profile
+  await User.findOneAndDelete({ clerkId: userId });
+
+  // 2. Clear all their saved/applied scholarships so they start completely fresh
+  await Application.deleteMany({ clerkId: userId });
+
+  return { success: true };
 }
