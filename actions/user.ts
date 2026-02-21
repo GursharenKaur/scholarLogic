@@ -61,3 +61,14 @@ export async function saveUserProfile(formData: FormData) {
   // 5. Go back to homepage
   redirect("/");
 }
+
+export async function getUserProfile() {
+  const { userId } = await auth();
+  if (!userId) return null;
+  
+  await connectToDatabase();
+  const user = await User.findOne({ clerkId: userId }).lean();
+  
+  // Convert MongoDB document to plain JSON so Client Components can read it
+  return user ? JSON.parse(JSON.stringify(user)) : null;
+}

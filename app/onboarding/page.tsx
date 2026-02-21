@@ -1,15 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { saveUserProfile } from "@/actions/user";
-import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react";
+import { saveUserProfile, getUserProfile } from "@/actions/user";
+import { Upload, FileText, CheckCircle } from "lucide-react";
 
 export default function OnboardingPage() 
 {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
   const [uploadedFiles, setUploadedFiles] = useState<{ [key: string]: File | null }>({});
+
+  useEffect(() => {
+    async function loadData() {
+      const data = await getUserProfile();
+      if (data) {
+        // Format date for HTML date input (YYYY-MM-DD)
+        if (data.dateOfBirth) {
+          data.dateOfBirth = new Date(data.dateOfBirth).toISOString().split('T')[0];
+        }
+        setProfile(data);
+      }
+      setIsLoading(false);
+    }
+    loadData();
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, docType: string) => {
     const file = e.target.files?.[0];
@@ -24,16 +41,13 @@ export default function OnboardingPage()
 
     const formData = new FormData(e.currentTarget);
     
-    // Add uploaded files to formData
     Object.entries(uploadedFiles).forEach(([docType, file]) => {
-      if (file) {
-        formData.append(`document_${docType}`, file);
-      }
+      if (file) formData.append(`document_${docType}`, file);
     });
 
     try {
       await saveUserProfile(formData);
-      router.push("/");
+      router.push("/home");
     } catch (error) {
       console.error("Error saving profile:", error);
       alert("Failed to save profile. Please try again.");
@@ -42,13 +56,23 @@ export default function OnboardingPage()
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-xl font-semibold text-gray-500 animate-pulse">Loading your profile...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            {profile ? "Update Your Profile" : "Complete Your Profile"}
+          </h1>
           <p className="text-lg text-gray-600">
-            Help us find the best scholarships tailored just for you
+            Keep your details up to date to find the best scholarships.
           </p>
         </div>
 
@@ -63,8 +87,9 @@ export default function OnboardingPage()
                 <input
                   name="name"
                   type="text"
+                  defaultValue={profile?.name || ""}
                   placeholder="Your full name"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -74,7 +99,8 @@ export default function OnboardingPage()
                 <input
                   name="dateOfBirth"
                   type="date"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={profile?.dateOfBirth || ""}
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -83,7 +109,8 @@ export default function OnboardingPage()
                 <label className="block text-sm font-medium mb-2">Gender <span className="text-red-500">*</span></label>
                 <select
                   name="gender"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={profile?.gender || ""}
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 >
                   <option value="">Select Gender</option>
@@ -99,9 +126,9 @@ export default function OnboardingPage()
                 <input
                   name="nationality"
                   type="text"
+                  defaultValue={profile?.nationality || "Indian"}
                   placeholder="e.g., Indian"
-                  defaultValue="Indian"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -117,7 +144,8 @@ export default function OnboardingPage()
                 <label className="block text-sm font-medium mb-2">Education Level <span className="text-red-500">*</span></label>
                 <select
                   name="educationLevel"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={profile?.educationLevel || ""}
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 >
                   <option value="">Select Level</option>
@@ -133,8 +161,9 @@ export default function OnboardingPage()
                 <input
                   name="course"
                   type="text"
+                  defaultValue={profile?.course || ""}
                   placeholder="e.g., B.Tech CSE"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -144,8 +173,9 @@ export default function OnboardingPage()
                 <input
                   name="university"
                   type="text"
+                  defaultValue={profile?.university || ""}
                   placeholder="e.g., IIT Delhi"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -157,8 +187,9 @@ export default function OnboardingPage()
                   type="number"
                   min="2024"
                   max="2030"
+                  defaultValue={profile?.graduationYear || ""}
                   placeholder="e.g., 2025"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -171,8 +202,9 @@ export default function OnboardingPage()
                   step="0.01"
                   min="0"
                   max="10"
+                  defaultValue={profile?.cgpa || ""}
                   placeholder="e.g., 7.5"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">Scale: 0-10</p>
@@ -190,9 +222,9 @@ export default function OnboardingPage()
                 <input
                   name="country"
                   type="text"
+                  defaultValue={profile?.country || "India"}
                   placeholder="e.g., India"
-                  defaultValue="India"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -202,8 +234,9 @@ export default function OnboardingPage()
                 <input
                   name="state"
                   type="text"
-                  placeholder="e.g., Maharashtra"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={profile?.state || ""}
+                  placeholder="e.g., Punjab"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -220,8 +253,9 @@ export default function OnboardingPage()
                 <input
                   name="income"
                   type="number"
+                  defaultValue={profile?.income || ""}
                   placeholder="e.g., 400000"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
@@ -230,7 +264,8 @@ export default function OnboardingPage()
                 <label className="block text-sm font-medium mb-2">Category <span className="text-red-500">*</span></label>
                 <select
                   name="category"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  defaultValue={profile?.category || ""}
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 >
                   <option value="">Select Category</option>
@@ -249,6 +284,7 @@ export default function OnboardingPage()
                 <input
                   name="disability"
                   type="checkbox"
+                  defaultChecked={profile?.disability || false}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
                 <span className="text-sm font-medium">I have a disability (PwD)</span>
@@ -258,6 +294,7 @@ export default function OnboardingPage()
                 <input
                   name="firstGeneration"
                   type="checkbox"
+                  defaultChecked={profile?.firstGeneration || false}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
                 <span className="text-sm font-medium">First generation learner</span>
@@ -275,19 +312,18 @@ export default function OnboardingPage()
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[
-                { type: "income", label: "Income Certificate", required: true },
-                { type: "resume", label: "Resume/CV", required: true },
-                { type: "marksheet", label: "Latest Mark Sheet", required: true },
-                { type: "idproof", label: "ID Proof", required: true },
-                { type: "category", label: "Category Certificate", required: false },
-                { type: "disability", label: "Disability Certificate", required: false },
+                { type: "income", label: "Income Certificate" },
+                { type: "resume", label: "Resume/CV" },
+                { type: "marksheet", label: "Latest Mark Sheet" },
+                { type: "idproof", label: "ID Proof" },
+                { type: "category", label: "Category Certificate" },
+                { type: "disability", label: "Disability Certificate" },
               ].map((doc) => (
                 <div key={doc.type} className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <label className="flex items-center space-x-2 cursor-pointer">
                       <FileText className="w-5 h-5 text-gray-400" />
                       <span className="text-sm font-medium">{doc.label}</span>
-                      {doc.required && <span className="text-red-500">*</span>}
                     </label>
                     {uploadedFiles[doc.type] && (
                       <CheckCircle className="w-5 h-5 text-green-500" />
@@ -307,7 +343,7 @@ export default function OnboardingPage()
                     className="flex items-center justify-center w-full p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
                   >
                     <Upload className="w-4 h-4 mr-2 text-gray-400" />
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-gray-600 truncate px-2">
                       {uploadedFiles[doc.type] ? uploadedFiles[doc.type]?.name : `Choose ${doc.label}`}
                     </span>
                   </label>
@@ -321,16 +357,10 @@ export default function OnboardingPage()
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg"
+              className="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg shadow-md hover:shadow-lg"
             >
-              {isSubmitting ? "Processing..." : "Complete Profile & Find Scholarships"}
+              {isSubmitting ? "Saving..." : profile ? "Update Profile" : "Complete Profile & Find Scholarships"}
             </button>
-          </div>
-          
-          <div className="text-center mt-4">
-            <p className="text-sm text-gray-500">
-              Your profile information and uploaded documents will be automatically saved.
-            </p>
           </div>
         </form>
       </div>
