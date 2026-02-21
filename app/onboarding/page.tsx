@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { saveUserProfile } from "@/actions/user";
 import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react";
 
-export default function OnboardingPage() {
+export default function OnboardingPage() 
+{
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<{ [key: string]: File | null }>({});
@@ -45,7 +46,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Complete Your Profile 🎓</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
           <p className="text-lg text-gray-600">
             Help us find the best scholarships tailored just for you
           </p>
@@ -54,11 +55,11 @@ export default function OnboardingPage() {
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Basic Information Section */}
           <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-6 text-blue-900">📋 Basic Information</h2>
+            <h2 className="text-xl font-semibold mb-6 text-blue-900">Basic Information</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Full Name</label>
+                <label className="block text-sm font-medium mb-2">Full Name <span className="text-red-500">*</span></label>
                 <input
                   name="name"
                   type="text"
@@ -69,7 +70,7 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Date of Birth</label>
+                <label className="block text-sm font-medium mb-2">Date of Birth <span className="text-red-500">*</span></label>
                 <input
                   name="dateOfBirth"
                   type="date"
@@ -79,7 +80,7 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Gender</label>
+                <label className="block text-sm font-medium mb-2">Gender <span className="text-red-500">*</span></label>
                 <select
                   name="gender"
                   className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -94,7 +95,7 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Nationality</label>
+                <label className="block text-sm font-medium mb-2">Nationality <span className="text-red-500">*</span></label>
                 <input
                   name="nationality"
                   type="text"
@@ -109,11 +110,11 @@ export default function OnboardingPage() {
 
           {/* Education Section */}
           <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-6 text-blue-900">🎓 Education Details</h2>
+            <h2 className="text-xl font-semibold mb-6 text-blue-900">Education Details</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Education Level</label>
+                <label className="block text-sm font-medium mb-2">Education Level <span className="text-red-500">*</span></label>
                 <select
                   name="educationLevel"
                   className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -128,7 +129,7 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Course / Major</label>
+                <label className="block text-sm font-medium mb-2">Course / Major <span className="text-red-500">*</span></label>
                 <input
                   name="course"
                   type="text"
@@ -139,7 +140,7 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">University/Institution</label>
+                <label className="block text-sm font-medium mb-2">University/Institution <span className="text-red-500">*</span></label>
                 <input
                   name="university"
                   type="text"
@@ -150,7 +151,7 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Expected Graduation Year</label>
+                <label className="block text-sm font-medium mb-2">Expected Graduation Year <span className="text-red-500">*</span></label>
                 <input
                   name="graduationYear"
                   type="number"
@@ -163,7 +164,7 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Current CGPA</label>
+                <label className="block text-sm font-medium mb-2">Current CGPA <span className="text-red-500">*</span></label>
                 <input
                   name="cgpa"
                   type="number"
@@ -181,11 +182,11 @@ export default function OnboardingPage() {
 
           {/* Location Section */}
           <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-6 text-blue-900">📍 Location Details</h2>
+            <h2 className="text-xl font-semibold mb-6 text-blue-900">Location Details</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Country</label>
+                <label className="block text-sm font-medium mb-2">Country <span className="text-red-500">*</span></label>
                 <input
                   name="country"
                   type="text"
@@ -197,7 +198,7 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">State/Province</label>
+                <label className="block text-sm font-medium mb-2">State/Province <span className="text-red-500">*</span></label>
                 <input
                   name="state"
                   type="text"
@@ -211,11 +212,11 @@ export default function OnboardingPage() {
 
           {/* Financial & Category Section */}
           <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-6 text-blue-900">💰 Financial & Category Details</h2>
+            <h2 className="text-xl font-semibold mb-6 text-blue-900">Financial & Category Details</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Annual Family Income (₹)</label>
+                <label className="block text-sm font-medium mb-2">Annual Family Income (₹) <span className="text-red-500">*</span></label>
                 <input
                   name="income"
                   type="number"
@@ -226,7 +227,7 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Category</label>
+                <label className="block text-sm font-medium mb-2">Category <span className="text-red-500">*</span></label>
                 <select
                   name="category"
                   className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -266,7 +267,7 @@ export default function OnboardingPage() {
 
           {/* Document Upload Section */}
           <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-6 text-blue-900">📄 Document Upload</h2>
+            <h2 className="text-xl font-semibold mb-6 text-blue-900">Document Upload</h2>
             <p className="text-sm text-gray-600 mb-6">
               Upload important documents that may be required for scholarship applications. 
               Supported formats: PDF, JPG, PNG (Max 5MB per file)
@@ -276,8 +277,8 @@ export default function OnboardingPage() {
               {[
                 { type: "income", label: "Income Certificate", required: true },
                 { type: "resume", label: "Resume/CV", required: true },
-                { type: "marksheet", label: "Latest Mark Sheet", required: false },
-                { type: "idproof", label: "ID Proof", required: false },
+                { type: "marksheet", label: "Latest Mark Sheet", required: true },
+                { type: "idproof", label: "ID Proof", required: true },
                 { type: "category", label: "Category Certificate", required: false },
                 { type: "disability", label: "Disability Certificate", required: false },
               ].map((doc) => (
@@ -315,15 +316,21 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Submit Button */}
+          {/* Action Button */}
           <div className="flex justify-center">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-8 py-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg"
+              className="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg"
             >
-              {isSubmitting ? "Saving Profile..." : "Complete Profile & Find Scholarships"}
+              {isSubmitting ? "Processing..." : "Complete Profile & Find Scholarships"}
             </button>
+          </div>
+          
+          <div className="text-center mt-4">
+            <p className="text-sm text-gray-500">
+              Your profile information and uploaded documents will be automatically saved.
+            </p>
           </div>
         </form>
       </div>
