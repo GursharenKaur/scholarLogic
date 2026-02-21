@@ -21,11 +21,12 @@ const UserSchema = new mongoose.Schema({
   gender: { type: String, enum: ["Male", "Female", "Other", "Prefer not to say"] },
   dateOfBirth: { type: Date }, // For age calculation
 
-  // Document storage
+  // Document storage (Cloudinary)
   documents: [{
     type: { type: String, enum: ["Income Certificate", "Resume", "Mark Sheet", "ID Proof", "Category Certificate", "Disability Certificate", "Other"] },
     fileName: { type: String },
-    fileUrl: { type: String }, // Cloud storage URL
+    fileUrl: { type: String }, // Cloudinary secure_url
+    publicId: { type: String }, // Cloudinary public_id (for deletion/replacement)
     uploadedAt: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });

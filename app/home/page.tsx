@@ -6,6 +6,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { ScholarshipCard } from "@/components/ScholarshipCard";
 import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
+export const dynamic = "force-dynamic";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -103,11 +104,14 @@ export default async function Home() {
     let userProfile: UserProfile | null = null;
     let savedScholarshipIds = new Set<string>();
 
+
     if (clerkUser) {
         const [user, savedApplications] = await Promise.all([
             User.findOne({ clerkId: clerkUser.id }).lean(),
             Application.find({ clerkId: clerkUser.id, status: "Saved" }).lean(),
         ]);
+
+        // (We removed the redirect failsafe from here!)
 
         savedScholarshipIds = new Set(
             savedApplications.map((app) => app.scholarshipId.toString())
@@ -136,51 +140,83 @@ export default async function Home() {
                     scholar<span className="text-blue-600">Logic</span>
                 </h1>
                 <div className="flex gap-4 items-center">
+                    {/* 👇 We removed the Update Profile link from here! */}
                     <Link href="/dashboard" className="text-sm font-medium hover:underline">
                         My Dashboard
                     </Link>
                     <SignedOut>
-                        <SignInButton mode="modal">
-                            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        <SignInButton mode="modal" fallbackRedirectUrl="/home">
+                            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                                 Sign In
                             </button>
                         </SignInButton>
                     </SignedOut>
                     <SignedIn>
-                        <UserButton />
+                        <UserButton afterSignOutUrl="/" />
                     </SignedIn>
                 </div>
             </nav>
 
+            
             {/* Welcome / Status Banner */}
             <div className="mb-8">
                 {userProfile ? (
-                    <div className="bg-green-100 border border-green-300 p-4 rounded-xl text-green-800">
-                        <p className="font-bold">
-                            Welcome back, {userProfile.name || "Student"}! 👋
-                        </p>
-                        <p className="text-sm">
-                            Based on your profile (CGPA: <strong>{userProfile.cgpa}</strong>
-                            {userProfile.course && <>, Course: <strong>{userProfile.course}</strong></>}
-                            {userProfile.category && <>, Category: <strong>{userProfile.category}</strong></>}
-                            ), you are eligible for <strong>{eligibleCount}</strong> out of{" "}
-                            <strong>{scholarships.length}</strong> scholarships. Eligible ones appear first.
-                        </p>
+                    <div key="banner-green" className="bg-green-100 border border-green-300 p-4 rounded-xl text-green-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <p className="font-bold">
+                                Welcome back, {userProfile.name || "Student"}! 👋
+                            </p>
+                            <p className="text-sm mt-1 text-green-800">
+                                Based on your profile (CGPA: <strong>{userProfile.cgpa}</strong>
+                                {userProfile.course && <>, Course: <strong>{userProfile.course}</strong></>}
+                                {userProfile.category && <>, Category: <strong>{userProfile.category}</strong></>}
+                                ), you are eligible for <strong>{eligibleCount}</strong> out of{" "}
+                                <strong>{scholarships.length}</strong> scholarships.
+                            </p>
+                        </div>
+                        <Link 
+                            href="/onboarding" 
+                            className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors shrink-0 shadow-sm"
+                        >
+                            ✏️ Edit Profile
+                        </Link>
+                    </div>
+                ) : clerkUser ? (
+                    <div key="banner-amber" className="bg-amber-50 border border-amber-300 p-4 rounded-xl text-amber-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <p className="font-bold text-amber-800">
+                                Welcome! Let&apos;s get you set up. 🚀
+                            </p>
+                            <p className="text-sm mt-1 text-amber-800">
+                                You are browsing <strong>{scholarships.length}</strong> scholarships. Complete your profile so our AI can instantly match you with the ones you actually qualify for!
+                            </p>
+                        </div>
+                        <Link 
+                            href="/onboarding" 
+                            className="bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-700 transition-colors shrink-0 shadow-sm"
+                        >
+                            ✨ Complete Profile
+                        </Link>
                     </div>
                 ) : (
-                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-blue-700">
-                        <p className="font-medium">
-                            🔍 Browsing {scholarships.length} scholarships.{" "}
-                            <SignInButton mode="modal">
-                                <button className="underline font-semibold hover:text-blue-900">
-                                    Sign in
-                                </button>
-                            </SignInButton>{" "}
-                            to see personalised eligibility badges.
-                        </p>
+                    <div key="banner-blue" className="bg-blue-50 border border-blue-300 p-4 rounded-xl text-blue-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <p className="font-bold text-blue-800">
+                                🔍 Discover Your Matches
+                            </p>
+                            <p className="text-sm mt-1 text-blue-800">
+                                You are currently browsing all <strong>{scholarships.length}</strong> scholarships. Sign in and complete your profile to see personalised eligibility badges!
+                            </p>
+                        </div>
+                        <SignInButton mode="modal" fallbackRedirectUrl="/home">
+                            <button className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shrink-0 shadow-sm">
+                                Sign In to Match
+                            </button>
+                        </SignInButton>
                     </div>
                 )}
             </div>
+
 
             {/* Scholarship Grid */}
             {scholarships.length > 0 ? (
