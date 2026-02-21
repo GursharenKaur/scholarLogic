@@ -21,6 +21,17 @@ export async function saveUserProfile(formData: FormData) {
   const cgpa = parseFloat(formData.get("cgpa") as string);
   const income = parseFloat(formData.get("income") as string);
   const course = formData.get("course") as string;
+  const educationLevel = formData.get("educationLevel") as string;
+  const university = formData.get("university") as string;
+  const graduationYear = parseInt(formData.get("graduationYear") as string);
+  const state = formData.get("state") as string;
+  const country = formData.get("country") as string;
+  const nationality = formData.get("nationality") as string;
+  const category = formData.get("category") as string;
+  const disability = formData.get("disability") === "on";
+  const firstGeneration = formData.get("firstGeneration") === "on";
+  const gender = formData.get("gender") as string;
+  const dateOfBirth = formData.get("dateOfBirth") ? new Date(formData.get("dateOfBirth") as string) : undefined;
 
   // 4. Update or Create the User in MongoDB
   await User.findOneAndUpdate(
@@ -32,6 +43,17 @@ export async function saveUserProfile(formData: FormData) {
       cgpa,
       income,
       course,
+      educationLevel,
+      university,
+      graduationYear,
+      state,
+      country,
+      nationality,
+      category,
+      disability,
+      firstGeneration,
+      gender,
+      dateOfBirth,
     },
     { upsert: true, new: true } // Create if doesn't exist
   );
