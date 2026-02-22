@@ -2,10 +2,12 @@ import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
+import { ScrollHat } from "@/components/ScrollHat";
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-[#050810] text-white flex flex-col overflow-hidden">
+
 
       {/* ── Navbar ── */}
       <nav className="relative z-30 flex items-center justify-between px-8 md:px-16 py-5 border-b border-white/[0.06] backdrop-blur-sm">
@@ -42,19 +44,7 @@ export default function LandingPage() {
       </nav>
 
 
-      {/* ── Flying graduation hat (fixed, full-screen diagonal) ── */}
-      <div
-        className="pointer-events-none fixed z-20 select-none"
-        style={{
-          bottom: "-80px",
-          left: "-80px",
-          fontSize: "clamp(5rem, 10vw, 8rem)",
-          animation: "hatFly 5s cubic-bezier(0.4,0,0.6,1) infinite",
-          filter: "drop-shadow(0 0 20px rgba(99,102,241,0.9))",
-        }}
-      >
-        🎓
-      </div>
+
 
       {/* ── Hero ── */}
       <div className="relative z-10 flex-1 flex items-center">
@@ -67,6 +57,10 @@ export default function LandingPage() {
           <div className="absolute bottom-0 left-[5%] w-[500px] h-[350px] rounded-full bg-indigo-700/6 blur-[120px]" />
           <AnimatedBackground />
         </div>
+
+
+        <ScrollHat />
+
 
         {/* Hero content — centered */}
         <div className="relative z-10 w-full max-w-4xl mx-auto px-8 md:px-16 py-12 md:py-20 flex flex-col items-center text-center">
@@ -82,15 +76,6 @@ export default function LandingPage() {
           </div>
 
 
-          {/* Hat keyframes - diagonal flight */}
-          <style>{`
-            @keyframes hatFly {
-              0%   { transform: translate(-120px, 120px) rotate(-20deg) scale(1);   opacity: 0; }
-              8%   { opacity: 1; }
-              92%  { opacity: 1; }
-              100% { transform: translate(110vw, -110vh) rotate(25deg) scale(1.2); opacity: 0; }
-            }
-          `}</style>
 
           {/* Big headline */}
           <h1 className="text-6xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95] mb-8">
