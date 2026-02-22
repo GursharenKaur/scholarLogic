@@ -140,12 +140,7 @@ export default async function ScholarshipDetail({
 
           {/* Action Buttons */}
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-            {isEligible === true ? (
-              <Button size="lg" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold gap-2">
-                <TrendingUp className="w-4 h-4" />
-                Begin My Draft
-              </Button>
-            ) : isEligible === false ? (
+            {isEligible === false ? (
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="lg" className="w-full border-amber-200 text-amber-700 hover:bg-amber-50 rounded-xl font-bold gap-2">
@@ -184,15 +179,23 @@ export default async function ScholarshipDetail({
                   </div>
                 </DialogContent>
               </Dialog>
-            ) : (
+            ) : isEligible === undefined ? (
               <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold" disabled>
                 Sign in to Check Eligibility
               </Button>
-            )}
+            ) : null}
             
             {s.applyLink && (
               <a href={s.applyLink} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" size="lg" className="w-full border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold gap-2">
+                <Button 
+                  variant="outline" 
+                  size="lg" 
+                  className={`w-full rounded-xl font-bold gap-2 ${
+                    isEligible === true 
+                      ? "bg-slate-700 text-white border-slate-700 hover:bg-slate-800" 
+                      : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
                   Apply on Official Site <ExternalLink className="w-4 h-4" />
                 </Button>
               </a>
