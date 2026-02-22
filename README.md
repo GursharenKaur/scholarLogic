@@ -1,9 +1,9 @@
-🎓 scholarLogic
+# scholarLogic
 Next-Generation Scholarship Matching Platform
 
 ScholarLogic is a full-stack platform designed to bridge the gap between complex scholarship PDFs and students. Built with a focus on automation and user-centric design.
 
-🛠️ Project Stack
+# Project Stack
 Framework: Next.js 15+ (App Router)
 
 Authentication: Clerk
@@ -12,7 +12,7 @@ Database: MongoDB Atlas via Mongoose
 
 UI Components: ShadCN + Tailwind CSS
 
-🏗️ Architecture & Folder Structure
+# Architecture & Folder Structure
 To ensure code quality and consistency, all contributors must follow this structure:
 
 /models: Mongoose schemas (The "Data Contract").
@@ -25,7 +25,7 @@ To ensure code quality and consistency, all contributors must follow this struct
 
 /app: Routing and page logic.
 
-📋 Teammate Instructions
+# Teammate Instructions
 Member 2: Frontend & Student Features
 
 Focus: User profiles and the matching engine.
@@ -46,14 +46,15 @@ Database Push: Use PyMongo to push data directly to the scholarships collection 
 
 Schema Alignment: Ensure extracted data matches our schema: title, provider, amount, deadline, and applyLink.
 
-🔐 Environment Setup
+# Environment Setup
 Create a .env.local file with the following keys. Never commit this file to GitHub.
 
 Plaintext
 MONGODB_URI=your_mongodb_connection_string
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_key
 CLERK_SECRET_KEY=your_key
-🚀 Getting Started
+
+# Getting Started
 npm install
 
 npm run dev
@@ -91,9 +92,3 @@ To learn more about Next.js, take a look at the following resources:
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
