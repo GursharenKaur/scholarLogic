@@ -1,4 +1,5 @@
 "use client";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -199,61 +200,68 @@ export default function OnboardingPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-xl font-semibold text-gray-500 animate-pulse">Loading your profile...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 transition-colors">
+        <p className="text-xl font-semibold text-slate-400 dark:text-slate-500 animate-pulse">Loading your profile...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200 py-8">
+      {/* Sticky nav */}
+      <nav className="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md mb-8">
+        <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
+          <span className="text-base font-bold text-slate-900 dark:text-white">scholar<span className="text-blue-600">Logic</span></span>
+          <ThemeToggle />
+        </div>
+      </nav>
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">
             {profile ? "Update Your Profile" : "Complete Your Profile"}
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-slate-500 dark:text-slate-400">
             Keep your details up to date to find the best scholarships.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8" suppressHydrationWarning={true}>
           {/* Basic Information Section */}
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-6 text-blue-900">Basic Information</h2>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+            <h2 className="text-xl font-semibold mb-6 text-blue-700 dark:text-blue-400">Basic Information</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Full Name <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Full Name <span className="text-red-500">*</span></label>
                 <input
                   name="name"
                   type="text"
                   defaultValue={profile?.name || ""}
                   placeholder="Your full name"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Date of Birth <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Date of Birth <span className="text-red-500">*</span></label>
                 <input
                   name="dateOfBirth"
                   type="date"
                   defaultValue={profile?.dateOfBirth || ""}
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Gender <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Gender <span className="text-red-500">*</span></label>
                 <select
                   name="gender"
                   defaultValue={profile?.gender || ""}
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 >
@@ -266,13 +274,13 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Nationality <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Nationality <span className="text-red-500">*</span></label>
                 <input
                   name="nationality"
                   type="text"
                   defaultValue={profile?.nationality || "Indian"}
                   placeholder="e.g., Indian"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 />
@@ -281,16 +289,16 @@ export default function OnboardingPage() {
           </div>
 
           {/* Education Section */}
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-6 text-blue-900">Education Details</h2>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+            <h2 className="text-xl font-semibold mb-6 text-blue-700 dark:text-blue-400">Education Details</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Education Level <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Education Level <span className="text-red-500">*</span></label>
                 <select
                   name="educationLevel"
                   defaultValue={profile?.educationLevel || ""}
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 >
@@ -303,33 +311,33 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Course / Major <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Course / Major <span className="text-red-500">*</span></label>
                 <input
                   name="course"
                   type="text"
                   defaultValue={profile?.course || ""}
                   placeholder="e.g., B.Tech CSE"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">University/Institution <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">University/Institution <span className="text-red-500">*</span></label>
                 <input
                   name="university"
                   type="text"
                   defaultValue={profile?.university || ""}
                   placeholder="e.g., IIT Delhi"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Expected Graduation Year <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Expected Graduation Year <span className="text-red-500">*</span></label>
                 <input
                   name="graduationYear"
                   type="number"
@@ -337,14 +345,14 @@ export default function OnboardingPage() {
                   max="2030"
                   defaultValue={profile?.graduationYear || ""}
                   placeholder="e.g., 2025"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Current CGPA <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Current CGPA <span className="text-red-500">*</span></label>
                 <input
                   name="cgpa"
                   type="number"
@@ -353,7 +361,7 @@ export default function OnboardingPage() {
                   max="10"
                   defaultValue={profile?.cgpa || ""}
                   placeholder="e.g., 7.5"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 />
@@ -363,31 +371,31 @@ export default function OnboardingPage() {
           </div>
 
           {/* Location Section */}
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-6 text-blue-900">Location Details</h2>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+            <h2 className="text-xl font-semibold mb-6 text-blue-700 dark:text-blue-400">Location Details</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Country <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Country <span className="text-red-500">*</span></label>
                 <input
                   name="country"
                   type="text"
                   defaultValue={profile?.country || "India"}
                   placeholder="e.g., India"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">State/Province <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">State/Province <span className="text-red-500">*</span></label>
                 <input
                   name="state"
                   type="text"
                   defaultValue={profile?.state || ""}
                   placeholder="e.g., Punjab"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 />
@@ -396,29 +404,29 @@ export default function OnboardingPage() {
           </div>
 
           {/* Financial & Category Section */}
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-6 text-blue-900">Financial & Category Details</h2>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+            <h2 className="text-xl font-semibold mb-6 text-blue-700 dark:text-blue-400">Financial & Category Details</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Annual Family Income (₹) <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Annual Family Income (₹) <span className="text-red-500">*</span></label>
                 <input
                   name="income"
                   type="number"
                   defaultValue={profile?.income || ""}
                   placeholder="e.g., 400000"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Category <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Category <span className="text-red-500">*</span></label>
                 <select
                   name="category"
                   defaultValue={profile?.category || ""}
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
                   required
                   suppressHydrationWarning
                 >
@@ -459,8 +467,8 @@ export default function OnboardingPage() {
           </div>
 
           {/* Document Upload Section */}
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-6 text-blue-900">Document Upload</h2>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+            <h2 className="text-xl font-semibold mb-6 text-blue-700 dark:text-blue-400">Document Upload</h2>
             <p className="text-sm text-gray-600 mb-6">
               Upload important documents that may be required for scholarship applications.
               Supported formats: PDF, JPG, PNG (Max 5MB per file)
@@ -477,9 +485,9 @@ export default function OnboardingPage() {
               ].map((doc) => {
                 const ds = docStates[doc.type];
                 return (
-                  <div key={doc.type} className={`border-2 border-dashed rounded-lg p-4 transition-colors ${ds?.status === 'done' ? 'border-green-400 bg-green-50' :
-                    ds?.status === 'error' ? 'border-red-400 bg-red-50' :
-                      'border-gray-300'
+                  <div key={doc.type} className={`border-2 border-dashed rounded-xl p-4 transition-colors ${ds?.status === 'done' ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-700' :
+                      ds?.status === 'error' ? 'border-red-400 bg-red-50 dark:bg-red-950/20 dark:border-red-700' :
+                        'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600'
                     }`}>
                     <div className="flex items-center justify-between mb-3">
                       <label className="flex items-center space-x-2 cursor-pointer">
@@ -504,9 +512,9 @@ export default function OnboardingPage() {
 
                     <label
                       htmlFor={`file-${doc.type}`}
-                      className={`flex items-center justify-center w-full p-3 border border-gray-300 rounded-lg transition-colors ${ds?.status === 'uploading'
-                        ? 'cursor-not-allowed bg-gray-100'
-                        : 'cursor-pointer hover:bg-gray-50'
+                      className={`flex items-center justify-center w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors ${ds?.status === 'uploading'
+                        ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800'
+                        : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                     >
                       {ds?.status === 'uploading' ? (
@@ -534,7 +542,7 @@ export default function OnboardingPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-8 py-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-lg shadow-md hover:shadow-lg w-full sm:w-auto"
+              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors text-lg shadow-md hover:shadow-lg w-full sm:w-auto"
               suppressHydrationWarning
             >
               {isSubmitting ? "Saving..." : profile ? "Update Profile" : "Complete Profile & Find Scholarships"}
@@ -546,7 +554,7 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={handleDelete}
                 disabled={isSubmitting}
-                className="px-8 py-4 bg-red-50 text-red-600 border border-red-200 font-semibold rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors text-lg w-full sm:w-auto"
+                className="px-8 py-4 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 font-semibold rounded-xl hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-50 transition-colors text-lg w-full sm:w-auto"
               >
                 Delete Profile
               </button>

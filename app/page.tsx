@@ -1,18 +1,19 @@
 import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-[#050810] text-white flex flex-col overflow-hidden">
 
-      {/* ── Background ambient glows ── */}
+      {/* Background ambient glows */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full bg-blue-600/10 blur-[120px]" />
         <div className="absolute bottom-[-80px] left-[10%] w-[500px] h-[400px] rounded-full bg-indigo-700/8 blur-[100px]" />
         <div className="absolute top-[40%] right-[-100px] w-[400px] h-[400px] rounded-full bg-sky-500/8 blur-[80px]" />
       </div>
 
-      {/* ── Navbar ── */}
+      {/* Navbar */}
       <nav className="relative z-10 flex items-center justify-between px-8 md:px-16 py-5 border-b border-white/[0.06] backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-xs font-black shadow-lg shadow-blue-500/30">
@@ -24,6 +25,8 @@ export default function LandingPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Dark mode toggle — uses a special style to look good on dark landing */}
+          <ThemeToggle className="border-white/10 bg-white/5 text-white hover:bg-white/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10" />
           <SignedOut>
             <SignInButton mode="modal">
               <button className="text-sm text-slate-400 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/5">
@@ -37,10 +40,7 @@ export default function LandingPage() {
             </SignInButton>
           </SignedOut>
           <SignedIn>
-            <Link
-              href="/home"
-              className="text-sm text-slate-400 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/5"
-            >
+            <Link href="/home" className="text-sm text-slate-400 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/5">
               Dashboard
             </Link>
             <UserButton />
@@ -48,10 +48,9 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* ── Hero ── */}
+      {/* Hero */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 py-24">
 
-        {/* Pill badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-300 text-xs font-medium mb-8 backdrop-blur-sm">
           <span className="relative flex h-1.5 w-1.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
@@ -60,7 +59,6 @@ export default function LandingPage() {
           AI-Powered · Personalised · Free to Use
         </div>
 
-        {/* Headline */}
         <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-[1.05] max-w-4xl mb-6">
           Stop Searching.<br />
           <span className="bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-400 bg-clip-text text-transparent">
@@ -68,25 +66,17 @@ export default function LandingPage() {
           </span>
         </h1>
 
-        {/* Subtitle */}
         <p className="text-slate-400 text-lg md:text-xl max-w-2xl leading-relaxed mb-10">
           ScholarLogic reads your academic profile and instantly surfaces every scholarship you actually qualify for —
           no irrelevant results, no wasted hours.
         </p>
 
-        {/* CTAs */}
         <div className="flex flex-wrap items-center justify-center gap-4 mb-20">
-          <Link
-            href="/home"
-            className="group relative inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3.5 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-blue-500/30 text-sm"
-          >
+          <Link href="/home" className="group relative inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3.5 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-blue-500/30 text-sm">
             Explore Scholarships
             <span className="group-hover:translate-x-0.5 transition-transform">→</span>
           </Link>
-          <Link
-            href="/home"
-            className="inline-flex items-center gap-2 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/8 text-slate-300 hover:text-white font-medium px-6 py-3.5 rounded-xl transition-all duration-200 text-sm backdrop-blur-sm"
-          >
+          <Link href="/home" className="inline-flex items-center gap-2 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/8 text-slate-300 hover:text-white font-medium px-6 py-3.5 rounded-xl transition-all duration-200 text-sm backdrop-blur-sm">
             See How It Works
           </Link>
         </div>
@@ -102,33 +92,19 @@ export default function LandingPage() {
               <div className="text-3xl md:text-4xl font-black bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
                 {stat.value}
               </div>
-              <div className="text-xs text-slate-500 mt-1.5 tracking-wide uppercase">
-                {stat.label}
-              </div>
+              <div className="text-xs text-slate-500 mt-1.5 tracking-wide uppercase">{stat.label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Feature strip ── */}
+      {/* Feature strip */}
       <div className="relative z-10 border-t border-white/[0.06] bg-white/[0.02] backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
-            {
-              icon: "🎯",
-              title: "Precision Matching",
-              desc: "We check your CGPA, income, course, and category against every scholarship — you see only what you can win.",
-            },
-            {
-              icon: "📄",
-              title: "PDF Intelligence",
-              desc: "Our AI reads scholarship PDFs and extracts eligibility criteria automatically — no manual data entry.",
-            },
-            {
-              icon: "⚡",
-              title: "Instant Results",
-              desc: "Complete your profile once and get a personalised, ranked list of scholarships in seconds.",
-            },
+            { icon: "🎯", title: "Precision Matching", desc: "We check your CGPA, income, course, and category against every scholarship — you see only what you can win." },
+            { icon: "📄", title: "PDF Intelligence", desc: "Our AI reads scholarship PDFs and extracts eligibility criteria automatically — no manual data entry." },
+            { icon: "⚡", title: "Instant Results", desc: "Complete your profile once and get a personalised, ranked list of scholarships in seconds." },
           ].map((feature) => (
             <div key={feature.title} className="flex flex-col gap-3">
               <span className="text-2xl">{feature.icon}</span>
@@ -139,11 +115,9 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ── Footer ── */}
       <footer className="relative z-10 text-center py-5 border-t border-white/[0.05] text-xs text-slate-700">
         © 2026 ScholarLogic · Built for students, powered by AI.
       </footer>
-
     </main>
   );
 }
