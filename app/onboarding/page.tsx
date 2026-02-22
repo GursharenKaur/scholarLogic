@@ -2,16 +2,26 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { saveUserProfile, getUserProfile ,deleteUserProfile } from "@/actions/user";
+import { saveUserProfile, getUserProfile, deleteUserProfile } from "@/actions/user";
 import { Upload, FileText, Loader2, CheckCircle, XCircle } from "lucide-react";
 
 
 type DocState = {
   fileName: string;
-  url: string;       // Cloudinary secure_url
-  publicId: string;  // Cloudinary public_id
+  url: string;       // Cloudinary secure_url or local object URL
+  publicId: string;  // Cloudinary public_id (empty for local uploads)
   status: 'uploading' | 'done' | 'error';
   error?: string;
+};
+
+// Map MongoDB document type labels back to form keys
+const DOC_LABEL_TO_KEY: Record<string, string> = {
+  "Income Certificate": "income",
+  "Resume": "resume",
+  "Mark Sheet": "marksheet",
+  "ID Proof": "idproof",
+  "Category Certificate": "category",
+  "Disability Certificate": "disability",
 };
 
 export default function OnboardingPage() {
@@ -30,6 +40,25 @@ export default function OnboardingPage() {
           data.dateOfBirth = new Date(data.dateOfBirth).toISOString().split('T')[0];
         }
         setProfile(data);
+
+        // ✅ Only restore Resume from saved profile (other docs are session-only and not persisted)
+        const PERSISTED_DOC_TYPES = ["Resume"];
+        if (Array.isArray(data.documents) && data.documents.length > 0) {
+          const restored: Record<string, DocState> = {};
+          for (const doc of data.documents) {
+            if (!PERSISTED_DOC_TYPES.includes(doc.type)) continue; // skip non-persisted docs
+            const key = DOC_LABEL_TO_KEY[doc.type];
+            if (key && doc.fileUrl) {
+              restored[key] = {
+                fileName: doc.fileName || doc.type,
+                url: doc.fileUrl,
+                publicId: doc.publicId || '',
+                status: 'done',
+              };
+            }
+          }
+          setDocStates(restored);
+        }
       }
       setIsLoading(false);
     }

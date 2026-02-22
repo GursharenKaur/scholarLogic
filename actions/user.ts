@@ -58,7 +58,27 @@ export async function saveUserProfile(formData: FormData) {
     }
   }
 
-  // 5. Update or Create the User in MongoDB
+  // 5. Only the Resume document is persisted; all other doc types are session-only.
+  //    Merge new resume (if uploaded) with the existing saved resume.
+  const PERSISTED_DOC_TYPES = ["Resume"];
+
+  const existingUser = await User.findOne({ clerkId: userId }).lean() as any;
+  const existingDocs: typeof documents = existingUser?.documents ?? [];
+
+  // Start from existing persisted docs (resumes only)
+  let mergedDocuments = existingDocs.filter((d: any) => PERSISTED_DOC_TYPES.includes(d.type));
+
+  // Replace / add newly uploaded resume (if present)
+  for (const newDoc of documents.filter(d => PERSISTED_DOC_TYPES.includes(d.type))) {
+    const idx = mergedDocuments.findIndex((d: any) => d.type === newDoc.type);
+    if (idx !== -1) {
+      mergedDocuments[idx] = newDoc;
+    } else {
+      mergedDocuments.push(newDoc);
+    }
+  }
+
+  // 6. Update or Create the User in MongoDB
   await User.findOneAndUpdate(
     { clerkId: userId },
     {
@@ -79,8 +99,7 @@ export async function saveUserProfile(formData: FormData) {
       firstGeneration,
       gender,
       dateOfBirth,
-      // Only overwrite documents if new ones were uploaded
-      ...(documents.length > 0 && { documents }),
+      documents: mergedDocuments,
     },
     { upsert: true, new: true }
   );
@@ -92,10 +111,10 @@ export async function saveUserProfile(formData: FormData) {
 export async function getUserProfile() {
   const { userId } = await auth();
   if (!userId) return null;
-  
+
   await connectToDatabase();
   const user = await User.findOne({ clerkId: userId }).lean();
-  
+
   // Convert MongoDB document to plain JSON so Client Components can read it
   return user ? JSON.parse(JSON.stringify(user)) : null;
 }
