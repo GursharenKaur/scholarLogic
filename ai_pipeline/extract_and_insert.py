@@ -1,5 +1,10 @@
 import os
 import sys
+
+# 🚀 ADD THIS EXACT LINE HERE (Before any other imports!)
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+
 import argparse
 import logging
 import json
