@@ -12,6 +12,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "ScholarLogic — AI-Powered Scholarship Matching",
   description: "Find scholarships you actually qualify for, powered by AI.",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+    shortcut: "/icon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
