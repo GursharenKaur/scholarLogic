@@ -51,7 +51,8 @@ export default async function Home() {
         ...s,
         _id: s._id.toString(),
         deadline: s.deadline ? new Date(s.deadline) : undefined,
-        isEligible: userProfile ? true : undefined,
+        isEligible: s.isEligible,
+        ineligibilityReasons: s.ineligibilityReasons || []
     }));
 
     return (
@@ -171,6 +172,7 @@ export default async function Home() {
                                 {...s}
                                 id={s._id}
                                 isSavedInitial={savedScholarshipIds.has(s._id)}
+                                ineligibilityReasons={s.ineligibilityReasons || []}
                             />
                         ))}
                     </div>

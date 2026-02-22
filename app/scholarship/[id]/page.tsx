@@ -1,11 +1,22 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, MapPin, IndianRupee, CheckCircle, ExternalLink } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, IndianRupee, CheckCircle, ExternalLink, AlertCircle, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { connectToDatabase } from "@/lib/db";
 import Scholarship from "@/models/Scholarship";
+import User from "@/models/User";
 import AISection from "@/components/AISection";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { getIneligibilityReasons } from "@/actions/scholarshipFilters";
 
 export default async function ScholarshipDetail({
   params,
@@ -13,8 +24,23 @@ export default async function ScholarshipDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { userId } = await auth();
+  const clerkUser = userId ? await currentUser() : null;
+  
   await connectToDatabase();
   const scholarship = await Scholarship.findById(id).lean();
+  
+  let userProfile = null;
+  let isEligible = undefined;
+  let ineligibilityReasons: string[] = [];
+  
+  if (clerkUser) {
+    userProfile = await User.findOne({ clerkId: clerkUser.id }).lean();
+    if (userProfile) {
+      ineligibilityReasons = await getIneligibilityReasons(scholarship, userProfile);
+      isEligible = ineligibilityReasons.length === 0;
+    }
+  }
 
   if (!scholarship) {
     return (
@@ -112,19 +138,69 @@ export default async function ScholarshipDetail({
             </section>
           )}
 
-          {/* Apply Button */}
-          {s.applyLink && (
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          {/* Action Buttons */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+            {isEligible === true ? (
+              <Button size="lg" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Begin My Draft
+              </Button>
+            ) : isEligible === false ? (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="lg" className="w-full border-amber-200 text-amber-700 hover:bg-amber-50 rounded-xl font-bold gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    Scope of Improvement
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-amber-700">
+                      <AlertCircle className="w-5 h-5" />
+                      Scope of Improvement
+                    </DialogTitle>
+                    <DialogDescription>
+                      Here&apos;s what you need to work on to become eligible for this scholarship:
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3 mt-4">
+                    {ineligibilityReasons.length > 0 ? (
+                      ineligibilityReasons.map((reason, index) => (
+                        <div key={index} className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                          <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                          <span className="text-sm text-amber-800">{reason}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-600">No specific improvement areas identified.</p>
+                    )}
+                    <div className="pt-2 border-t">
+                      <Link href="/onboarding">
+                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                          Update Profile
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            ) : (
+              <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold" disabled>
+                Sign in to Check Eligibility
+              </Button>
+            )}
+            
+            {s.applyLink && (
               <a href={s.applyLink} target="_blank" rel="noopener noreferrer">
-                <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold gap-2">
+                <Button variant="outline" size="lg" className="w-full border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold gap-2">
                   Apply on Official Site <ExternalLink className="w-4 h-4" />
                 </Button>
               </a>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* AI Application Designer */}
-          <AISection scholarshipId={s._id.toString()} />
+          {isEligible === true && <AISection scholarshipId={s._id.toString()} />}
         </div>
       </div>
     </div>
