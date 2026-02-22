@@ -24,6 +24,9 @@ from db import (
     deduplicate_existing,
 )
 
+# 🚀 ADD THIS TO AUTO-CREATE THE FOLDER:
+os.makedirs("logs", exist_ok=True)
+
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
     filename="logs/pipeline.log",
@@ -31,7 +34,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 logger = logging.getLogger(__name__)
-
 
 # ── PDF Text Extraction ──────────────────────────────────────────────────────
 def extract_text_from_pdf(path: str) -> str:
