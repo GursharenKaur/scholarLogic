@@ -1,83 +1,84 @@
 import { createScholarship } from "@/actions/scholarship";
+import { currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { AdminPdfUpload } from "@/components/AdminPdfUpload";
+import Link from "next/link";
+import { ArrowLeft, ShieldPlus, Trash2 } from "lucide-react";
+import { isUserAdmin, grantAdminAccess, revokeAdminAccess, getAdminWhitelist } from "@/actions/adminAccess";
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  // 🔒 NEW SECURITY CHECK
+  const user = await currentUser();
+  const userEmail = user?.emailAddresses[0]?.emailAddress;
+  
+  const hasAccess = await isUserAdmin(userEmail);
+  if (!hasAccess) redirect("/home");
+
+  const whitelistedEmails = await getAdminWhitelist();
+
   return (
-    <div className="max-w-2xl mx-auto p-10">
-      <h1 className="text-3xl font-bold mb-8">Post New Scholarship (Admin)</h1>
+    <div className="max-w-3xl mx-auto p-10 space-y-10 min-h-screen">
       
-      <form action={createScholarship} className="space-y-6 bg-white p-6 rounded-xl shadow-md border">
-        
-        {/* Basic Info */}
-        <div>
-          <label className="block font-medium mb-1">Scholarship Title</label>
-          <input name="title" type="text" placeholder="e.g. Super Smart Scholarship" className="w-full p-2 border rounded" required />
-        </div>
+      <div className="flex items-center justify-between">
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Admin Command Center</h1>
+          <Link href="/home" className="flex items-center text-sm font-medium text-blue-600 hover:underline">
+            <ArrowLeft className="w-4 h-4 mr-1" /> Back to App
+          </Link>
+      </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block font-medium mb-1">Provider</label>
-            <input name="provider" type="text" placeholder="Thapar University" className="w-full p-2 border rounded" required />
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Amount (₹)</label>
-            <input name="amount" type="number" placeholder="50000" className="w-full p-2 border rounded" required />
-          </div>
-        </div>
+      {/* 🔐 NEW: Partner Access Management */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-bold text-indigo-900">1. Partner Access Management</h2>
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <form action={grantAdminAccess} className="flex gap-4 mb-6">
+                <input name="email" type="email" placeholder="partner@university.edu" className="flex-1 p-3 border rounded-lg bg-slate-50" required />
+                <button type="submit" className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 flex items-center gap-2 transition-colors">
+                    <ShieldPlus className="w-5 h-5" /> Grant Access
+                </button>
+            </form>
 
-        {/* 👇 NEW SECTION: ELIGIBILITY CRITERIA 👇 */}
-        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-          <h3 className="font-bold text-blue-800 mb-3">Eligibility Logic (The "Judge")</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1 text-blue-900">Min. CGPA Required</label>
-              <input 
-                name="minCGPA" 
-                type="number" 
-                step="0.1" 
-                placeholder="e.g. 8.5" 
-                className="w-full p-2 border rounded" 
-              />
-              <p className="text-xs text-gray-500 mt-1">Leave empty if no CGPA limit.</p>
+            <div className="space-y-3">
+                <h3 className="font-semibold text-slate-700">Authorized Partners:</h3>
+                {whitelistedEmails.length === 0 ? (
+                    <p className="text-sm text-slate-500 italic">No partner emails added yet.</p>
+                ) : (
+                    whitelistedEmails.map(email => (
+                        <div key={email} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <span className="font-medium text-slate-700">{email}</span>
+                            <form action={revokeAdminAccess}>
+                                <input type="hidden" name="email" value={email} />
+                                <button type="submit" className="text-red-500 hover:text-red-700 p-2 transition-colors">
+                                    <Trash2 className="w-5 h-5" />
+                                </button>
+                            </form>
+                        </div>
+                    ))
+                )}
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 text-blue-900">Max. Family Income (₹)</label>
-              <input 
-                name="minIncome" // We use 'minIncome' field name for 'Income Ceiling' in the DB
-                type="number" 
-                placeholder="e.g. 600000" 
-                className="w-full p-2 border rounded" 
-              />
-              <p className="text-xs text-gray-500 mt-1">Leave empty if open to all.</p>
+        </div>
+      </section>
+
+      {/* 🚀 AI PIPELINE UPLOAD */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-bold text-indigo-900">2. Automated AI Ingestion</h2>
+        <AdminPdfUpload />
+      </section>
+
+      {/* ✍️ MANUAL FALLBACK (Rest of your existing form goes here) */}
+      <section className="space-y-4">
+          <h2 className="text-2xl font-bold text-slate-800">3. Manual Data Entry</h2>
+          <form action={createScholarship} className="space-y-6 bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+             {/* Keep your exact existing form inputs here! I'm shortening it so you don't lose your work. */}
+             <div>
+              <label className="block font-medium mb-1">Scholarship Title</label>
+              <input name="title" type="text" placeholder="e.g. Super Smart Scholarship" className="w-full p-3 border rounded-lg bg-slate-50" required />
             </div>
-          </div>
-        </div>
-
-        {/* Standard Info */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block font-medium mb-1">Location</label>
-            <input name="location" type="text" placeholder="Pan-India" className="w-full p-2 border rounded" />
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Deadline</label>
-            <input name="deadline" type="date" className="w-full p-2 border rounded" required />
-          </div>
-        </div>
-
-        <div>
-          <label className="block font-medium mb-1">Application Link</label>
-          <input name="applyLink" type="url" placeholder="https://..." className="w-full p-2 border rounded" />
-        </div>
-
-        <div>
-          <label className="block font-medium mb-1">Brief Description</label>
-          <textarea name="description" rows={4} className="w-full p-2 border rounded" required />
-        </div>
-
-        <button type="submit" className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">
-          Push to scholarLogic Database
-        </button>
-      </form>
+            {/* ... rest of your inputs ... */}
+            <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition-colors shadow-md">
+              Push to Database
+            </button>
+          </form>
+      </section>
     </div>
   );
 }
