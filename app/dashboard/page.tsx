@@ -15,6 +15,11 @@ import {
   CalendarClock,
   CheckCircle2,
   Circle,
+  FileText,
+  FileImage,
+  ExternalLink,
+  Download,
+  FolderOpen,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -105,6 +110,9 @@ export default async function DashboardPage() {
     daysLeft: daysUntil(app.scholarshipId.deadline),
   }));
 
+  // Extract persisted resume (the only doc shown on dashboard)
+  const resumeDoc = (userProfile as any)?.documents?.find((d: any) => d.type === "Resume") ?? null;
+
   return (
     <div className="p-8 max-w-7xl mx-auto min-h-screen space-y-8">
 
@@ -140,10 +148,10 @@ export default async function DashboardPage() {
                 </div>
                 <span
                   className={`text-xs font-bold px-2 py-1 rounded-full ${s.daysLeft === 0
-                      ? "bg-red-100 text-red-700"
-                      : s.daysLeft <= 2
-                        ? "bg-orange-100 text-orange-700"
-                        : "bg-amber-100 text-amber-700"
+                    ? "bg-red-100 text-red-700"
+                    : s.daysLeft <= 2
+                      ? "bg-orange-100 text-orange-700"
+                      : "bg-amber-100 text-amber-700"
                     }`}
                 >
                   {s.daysLeft === 0 ? "Today!" : `${s.daysLeft}d left`}
@@ -215,10 +223,10 @@ export default async function DashboardPage() {
           </div>
           <span
             className={`text-sm font-bold px-3 py-1 rounded-full ${profileScore === 100
-                ? "bg-green-100 text-green-700"
-                : profileScore >= 60
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "bg-amber-100 text-amber-700"
+              ? "bg-green-100 text-green-700"
+              : profileScore >= 60
+                ? "bg-indigo-100 text-indigo-700"
+                : "bg-amber-100 text-amber-700"
               }`}
           >
             {profileScore}%
@@ -229,10 +237,10 @@ export default async function DashboardPage() {
         <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
           <div
             className={`h-3 rounded-full transition-all duration-700 ${profileScore === 100
-                ? "bg-green-500"
-                : profileScore >= 60
-                  ? "bg-indigo-500"
-                  : "bg-amber-500"
+              ? "bg-green-500"
+              : profileScore >= 60
+                ? "bg-indigo-500"
+                : "bg-amber-500"
               }`}
             style={{ width: `${profileScore}%` }}
           />
@@ -263,6 +271,107 @@ export default async function DashboardPage() {
               className="inline-block mt-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 underline underline-offset-2 transition-colors"
             >
               Complete your profile →
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* ── My Resume ────────────────────────────────────────────────── */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <FolderOpen className="w-5 h-5 text-indigo-500" />
+          My Resume
+        </h2>
+
+        {resumeDoc ? (() => {
+          const doc = resumeDoc as any;
+          const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(doc.fileName ?? "") ||
+            doc.fileUrl?.includes("/image/");
+          const isPdf = /\.pdf$/i.test(doc.fileName ?? "") ||
+            doc.fileUrl?.includes("/raw/") ||
+            doc.fileUrl?.endsWith(".pdf");
+          const uploadDate = doc.uploadedAt
+            ? new Date(doc.uploadedAt).toLocaleDateString("en-IN", {
+              day: "numeric", month: "short", year: "numeric",
+            })
+            : "";
+          return (
+            <div className="max-w-sm">
+              <div className="group relative rounded-xl border bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                {/* Thumbnail / Preview area */}
+                <div className="h-36 bg-gradient-to-br from-indigo-50 to-slate-100 flex items-center justify-center overflow-hidden">
+                  {isImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={doc.fileUrl}
+                      alt={doc.type}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-indigo-400">
+                      {isPdf ? (
+                        <FileText className="w-12 h-12" />
+                      ) : (
+                        <FileImage className="w-12 h-12" />
+                      )}
+                      <span className="text-xs font-medium uppercase tracking-wide">
+                        {isPdf ? "PDF" : "Document"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Info row */}
+                <div className="p-4 space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 leading-tight">{doc.type}</p>
+                      <p className="text-xs text-muted-foreground truncate max-w-[180px]" title={doc.fileName}>
+                        {doc.fileName || "Uploaded file"}
+                      </p>
+                      {uploadDate && (
+                        <p className="text-xs text-gray-400 mt-1">Uploaded {uploadDate}</p>
+                      )}
+                    </div>
+                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${isPdf ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"
+                      }`}>
+                      {isPdf ? "PDF" : "IMG"}
+                    </span>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 pt-2">
+                    <a
+                      href={doc.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Preview
+                    </a>
+                    <a
+                      href={doc.fileUrl}
+                      download={doc.fileName || doc.type}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })() : (
+          <div className="text-center py-14 border-2 border-dashed rounded-xl">
+            <FolderOpen className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+            <p className="text-muted-foreground font-medium">No resume uploaded yet.</p>
+            <Link
+              href="/onboarding"
+              className="inline-block mt-2 text-sm text-indigo-600 hover:underline font-semibold"
+            >
+              Upload your resume →
             </Link>
           </div>
         )}
