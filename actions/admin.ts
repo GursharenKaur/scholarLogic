@@ -28,6 +28,7 @@ export async function uploadAndProcessPdf(formData: FormData) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
+    
     // 2. Save it to M3's pdfs folder
     const fileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_"); // Clean filename
     const filePath = path.join(process.cwd(), "ai_pipeline", "pdfs", fileName);
@@ -35,8 +36,11 @@ export async function uploadAndProcessPdf(formData: FormData) {
 
 // 3. Fire the Python AI Pipeline!
     try {
-        const { stdout, stderr } = await execAsync(`python3 ai_pipeline/extract_and_insert.py --file "${filePath}"`);
-        
+        // Detect if the server is running on Windows ("win32") or Mac/Linux
+        const pythonCommand = process.platform === "win32" ? "python" : "python3";
+
+        const { stdout, stderr } = await execAsync(`${pythonCommand} ai_pipeline/extract_and_insert.py --file "${filePath}"`);
+                
         console.log("Python Raw Output:", stdout); // Helpful for debugging
 
         // 👇 FIX: Find the JSON block even if there is extra text around it
