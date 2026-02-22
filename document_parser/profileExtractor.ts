@@ -157,74 +157,89 @@ export async function extractProfileData(text: string, documentType: DocumentTyp
   documentType: DocumentType;
   extractedAt: string;
 }> {
-  try {
-    // Truncate to avoid token limits (6000 chars ≈ ~1500 tokens)
-    const truncatedText = text.length > 6000 ? text.slice(0, 6000) + '\n[...truncated]' : text;
-    const prompt = EXTRACTION_PROMPTS[documentType] + truncatedText;
+  const maxRetries = 3;
+  let lastError: Error | null = null;
 
-    console.log(`🤖 [MegaLLM] Calling ${MEGA_LLM_CONFIG.baseURL} with model ${MEGA_LLM_CONFIG.model}`);
-    console.log(`📝 Prompt length: ${prompt.length} chars`);
-
-    // 30-second timeout — prevents hanging fetches
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
-
-    let response: Response;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      response = await fetch(`${MEGA_LLM_CONFIG.baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${getApiKey()}`,
-          'Content-Type': 'application/json',
-        },
-        // NOTE: response_format is NOT included — deepseek-v3.1 on MegaLLM
-        // does not support it and will reject the request.
-        body: JSON.stringify({
-          model: MEGA_LLM_CONFIG.model,
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a precise data extraction expert. Always return valid JSON responses only.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: MEGA_LLM_CONFIG.temperature,
-          max_tokens: MEGA_LLM_CONFIG.maxTokens,
-        }),
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
+      // Truncate to avoid token limits (6000 chars ≈ ~1500 tokens)
+      const truncatedText = text.length > 6000 ? text.slice(0, 6000) + '\n[...truncated]' : text;
+      const prompt = EXTRACTION_PROMPTS[documentType] + truncatedText;
+
+      console.log(`🤖 [MegaLLM] Attempt ${attempt}/${maxRetries} - Calling ${MEGA_LLM_CONFIG.baseURL} with model ${MEGA_LLM_CONFIG.model}`);
+      console.log(`📝 Prompt length: ${prompt.length} chars`);
+
+      // 60-second timeout — gives more time for processing
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 60_000);
+
+      let response: Response;
+      try {
+        response = await fetch(`${MEGA_LLM_CONFIG.baseURL}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${getApiKey()}`,
+            'Content-Type': 'application/json',
+          },
+          // NOTE: response_format is NOT included — deepseek-v3.1 on MegaLLM
+          // does not support it and will reject the request.
+          body: JSON.stringify({
+            model: MEGA_LLM_CONFIG.model,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a precise data extraction expert. Always return valid JSON responses only.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            temperature: MEGA_LLM_CONFIG.temperature,
+            max_tokens: MEGA_LLM_CONFIG.maxTokens,
+          }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      if (!response.ok) {
+        const body = await response.text().catch(() => '(unreadable)');
+        console.error(`❌ MegaLLM HTTP ${response.status}:`, body);
+        throw new Error(`MegaLLM API returned ${response.status}: ${body.slice(0, 200)}`);
+      }
+
+      const result = await response.json();
+      const rawContent: string = result.choices?.[0]?.message?.content ?? '{}';
+
+      // Strip markdown code fences if model wraps JSON in ```json ... ```
+      const cleaned = rawContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+      const extractedData = JSON.parse(cleaned);
+
+      console.log(`✅ Successfully extracted data from ${documentType} on attempt ${attempt}`);
+      return {
+        data: extractedData,
+        confidence: 0.85,
+        documentType,
+        extractedAt: new Date().toISOString()
+      };
+
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`❌ Attempt ${attempt} failed:`, lastError.message);
+      
+      if (attempt < maxRetries) {
+        console.log(`⏳ Retrying in 2 seconds...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
     }
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => '(unreadable)');
-      console.error(`❌ MegaLLM HTTP ${response.status}:`, body);
-      throw new Error(`MegaLLM API returned ${response.status}: ${body.slice(0, 200)}`);
-    }
-
-    const result = await response.json();
-    const rawContent: string = result.choices?.[0]?.message?.content ?? '{}';
-
-    // Strip markdown code fences if the model wraps the JSON in ```json ... ```
-    const cleaned = rawContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
-    const extractedData = JSON.parse(cleaned);
-
-    console.log(`✅ Successfully extracted data from ${documentType}`);
-    return {
-      data: extractedData,
-      confidence: 0.85,
-      documentType,
-      extractedAt: new Date().toISOString()
-    };
-
-  } catch (error) {
-    console.error(`❌ Profile extraction error for ${documentType}:`, error instanceof Error ? error.message : String(error));
-    throw new Error(`Failed to extract profile data: ${error instanceof Error ? error.message : String(error)}`);
   }
+
+  // All attempts failed
+  const errorMsg = lastError?.message || 'Unknown error occurred';
+  console.error(`❌ Profile extraction failed for ${documentType} after ${maxRetries} attempts:`, errorMsg);
+  throw new Error(`Failed to extract profile data: ${errorMsg}`);
 }
 
 export function mapExtractedDataToForm(extractedData: any): MappedFormData {
