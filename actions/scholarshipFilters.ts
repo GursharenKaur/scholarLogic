@@ -6,43 +6,65 @@ import Scholarship from "@/models/Scholarship";
 export async function getEligibleScholarships(profile: any) {
   await connectToDatabase();
 
-  // If user hasn't filled a profile yet, just show the 20 newest scholarships
+  // No profile → show the 50 newest scholarships
   if (!profile) {
-    return await Scholarship.find().sort({ createdAt: -1 }).limit(20).lean();
+    return await Scholarship.find().sort({ createdAt: -1 }).limit(50).lean();
   }
 
-  // 🔥 High-Performance MongoDB Pipeline
+  // With profile → run eligibility pipeline
+  // Treat maxIncome=0 and minCGPA=0 as "no restriction" (open to all)
   const pipeline = [
     {
       $match: {
         $and: [
-          // 1. CGPA Check: Scholarship minCGPA <= user's CGPA (or no limit exists)
-          { $or: [{ minCGPA: { $lte: profile.cgpa } }, { minCGPA: { $exists: false } }, { minCGPA: null }] },
-          
-          // 2. Income Check: Scholarship maxIncome >= user's income (or no limit exists)
-          { $or: [{ maxIncome: { $gte: profile.income } }, { maxIncome: { $exists: false } }, { maxIncome: null }] },
-          
-          // 3. Category Check: Matches "General", "OBC", etc.
+          // 1. CGPA: scholarship minCGPA <= user's CGPA OR no/zero limit
+          {
+            $or: [
+              { minCGPA: { $exists: false } },
+              { minCGPA: null },
+              { minCGPA: 0 },
+              { minCGPA: { $lte: profile.cgpa } },
+            ],
+          },
+
+          // 2. Income: scholarship maxIncome >= user's income OR no/zero limit
+          {
+            $or: [
+              { maxIncome: { $exists: false } },
+              { maxIncome: null },
+              { maxIncome: 0 },
+              ...(profile.income != null
+                ? [{ maxIncome: { $gte: profile.income } }]
+                : []),
+            ],
+          },
+
+          // 3. Category: matches user's category OR no restriction
           {
             $or: [
               { categoryRestriction: { $exists: false } },
               { categoryRestriction: null },
               { categoryRestriction: "" },
-              {
-                $expr: {
-                  $regexMatch: {
-                    input: "$categoryRestriction",
-                    regex: profile.category,
-                    options: "i"
-                  }
-                }
-              }
-            ]
-          }
-        ]
-      }
+              ...(profile.category
+                ? [
+                  {
+                    $expr: {
+                      $regexMatch: {
+                        input: "$categoryRestriction",
+                        regex: profile.category,
+                        options: "i",
+                      },
+                    },
+                  },
+                ]
+                : []),
+            ],
+          },
+        ],
+      },
     },
-    { $sort: { amount: -1 } } // Show highest paying scholarships first
+    { $sort: { amount: -1, createdAt: -1 } },
+    { $limit: 50 },
   ];
 
   const results = await Scholarship.aggregate(pipeline as any[]);

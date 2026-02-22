@@ -243,7 +243,7 @@ export function ScholarshipCard({
             </SignInButton>
           </SignedOut>
         </div>
-        
+
         {sourcePdf && (
           <Button
             onClick={openPdf}
