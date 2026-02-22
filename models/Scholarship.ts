@@ -1,32 +1,36 @@
-import mongoose , { Schema , Document , Model} from "mongoose";
+import mongoose, { Schema, Document, Model } from "mongoose";
 
 // this is just an interface we have made 
-export interface IScholarship extends Document{
+export interface IScholarship extends Document {
 
-    // student details 
-    title: string;
-    provider: string;
-    amount?: number;
-    amountType?: "CASH" | "WAIVER";
-    deadline: Date;
-    location: string;
+  // student details 
+  title: string;
+  provider: string;
+  amount?: number;
+  amountType?: "CASH" | "WAIVER";
+  deadline: Date;
+  location: string;
 
-    // ye AI leke ayega M3 da kaam ae eh
-    educationLevel: string;
-    maxIncome?: number;
-    minCGPA?: number;
-    
-    // New restriction fields
-    courseRestriction?: string;
-    categoryRestriction?: string;
-    yearRestriction?: string;
+  // ye AI leke ayega M3 da kaam ae eh
+  educationLevel: string;
+  maxIncome?: number;
+  minCGPA?: number;
 
-    // metadata
-    applyLink?: string;
-    description?: string;
-    tags: string[];
-    sourcePdf?: string; // New field to store the source PDF filename
-    createdAt: Date;
+  // New restriction fields
+  courseRestriction?: string;
+  categoryRestriction?: string;
+  yearRestriction?: string;
+
+  // Deduplication keys (normalized lowercase)
+  normTitle?: string;
+  normProvider?: string;
+
+  // metadata
+  applyLink?: string;
+  description?: string;
+  tags: string[];
+  sourcePdf?: string; // New field to store the source PDF filename
+  createdAt: Date;
 }
 
 
@@ -49,7 +53,10 @@ const ScholarshipSchema = new Schema<IScholarship>(
     applyLink: { type: String },
     description: { type: String },
     tags: { type: [String], default: [] },
-    sourcePdf: { type: String }, // New field to store the source PDF filename
+    sourcePdf: { type: String },
+    // Deduplication keys
+    normTitle: { type: String, index: true },
+    normProvider: { type: String, index: true },
   },
   { timestamps: true } // Automatically adds createdAt and updatedAt
 );

@@ -34,13 +34,13 @@ export function AdminPdfUpload() {
 
     return (
         <div className="border-2 border-dashed border-indigo-300 bg-indigo-50/50 rounded-xl p-8 text-center transition-all hover:bg-indigo-50">
-            <input 
-                type="file" 
-                accept=".pdf" 
-                id="admin-pdf" 
-                className="hidden" 
-                onChange={handleUpload} 
-                disabled={isUploading} 
+            <input
+                type="file"
+                accept=".pdf"
+                id="admin-pdf"
+                className="hidden"
+                onChange={handleUpload}
+                disabled={isUploading}
             />
             <label htmlFor="admin-pdf" className="cursor-pointer flex flex-col items-center justify-center">
                 {isUploading ? (

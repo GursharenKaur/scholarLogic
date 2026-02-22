@@ -24,7 +24,7 @@ export default async function Home() {
 
     const { userId } = await auth();
     const clerkUser = userId ? await currentUser() : null;
-    
+
     // Check Admin Access via DB Whitelist
     const userEmail = clerkUser?.emailAddresses[0]?.emailAddress;
     const isAdmin = await isUserAdmin(userEmail);

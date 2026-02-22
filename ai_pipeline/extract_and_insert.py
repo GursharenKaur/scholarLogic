@@ -1,9 +1,9 @@
 import os
 import sys
 
-# 🚀 ADD THIS EXACT LINE HERE (Before any other imports!)
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
+# Ensure the ai_pipeline directory is on the path
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(_SCRIPT_DIR)
 
 import argparse
 import logging
@@ -24,16 +24,22 @@ from db import (
     deduplicate_existing,
 )
 
-# 🚀 ADD THIS TO AUTO-CREATE THE FOLDER:
-os.makedirs("logs", exist_ok=True)
+# Use script dir for logs so it works from any working directory
+_LOG_DIR = os.path.join(_SCRIPT_DIR, "logs")
+os.makedirs(_LOG_DIR, exist_ok=True)
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
-    filename="logs/pipeline.log",
+    filename=os.path.join(_LOG_DIR, "pipeline.log"),
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# ── Helper: in --file mode, send debug output to stderr, not stdout ───────────
+def _eprint(*args, **kwargs):
+    """Print to stderr so stdout stays clean for JSON output."""
+    print(*args, file=sys.stderr, **kwargs)
 
 # ── PDF Text Extraction ──────────────────────────────────────────────────────
 def extract_text_from_pdf(path: str) -> str:
@@ -246,6 +252,10 @@ if __name__ == "__main__":
 
     if args.file:
         # ── Single-file mode: used by the Next.js API route ──────────────────
+        # Redirect ALL print() calls to stderr so stdout stays clean for JSON.
+        _real_stdout = sys.stdout
+        sys.stdout = sys.stderr
+
         pdf_path = args.file
         pdf_filename = os.path.basename(pdf_path)
         errors: list[str] = []
@@ -308,8 +318,10 @@ if __name__ == "__main__":
                 "errors": [str(e)],
             }
 
-        # Write ONLY the JSON to stdout — no other print() output should reach stdout
+        # Restore real stdout and write ONLY the JSON — nothing else
+        sys.stdout = _real_stdout
         sys.stdout.write(json.dumps(result) + "\n")
+        sys.stdout.flush()
         sys.exit(0)
     else:
         main()
