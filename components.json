@@ -1,3 +1,4 @@
+
 {
   "$schema": "https://ui.shadcn.com/schema.json",
   "style": "new-york",
@@ -9,7 +10,7 @@
     "baseColor": "slate",
     "cssVariables": true,
     "prefix": ""
-  },
+  },  
   "iconLibrary": "lucide",
   "rtl": false,
   "aliases": {
